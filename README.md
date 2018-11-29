@@ -18,7 +18,7 @@ See https://gitlab.com/eidheim/Simple-WebSocket-Server for an easy way to make W
 
 ### Usage
 
-See http_examples.cpp or https_examples.cpp for example usage. 
+See [http_examples.cpp](http_examples.cpp) or [https_examples.cpp](https_examples.cpp) for example usage. 
 
 See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[number] examples, which are most relevant.
 
