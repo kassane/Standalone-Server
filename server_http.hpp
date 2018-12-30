@@ -405,7 +405,7 @@ namespace SimpleWeb {
       {
 #if defined(__linux__) && defined(TCP_FASTOPEN)
         const int qlen = 5; // This seems to be the value that is used in other examples.
-        boost::system::error_code ec;
+        error_code ec{};
         acceptor->set_option(asio::detail::socket_option::integer<IPPROTO_TCP, TCP_FASTOPEN>(qlen), ec);
 #endif // End Linux
       }
