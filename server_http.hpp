@@ -351,6 +351,8 @@ namespace SimpleWeb {
       std::string address;
       /// Set to false to avoid binding the socket to an address that is already in use. Defaults to true.
       bool reuse_address = true;
+      /// Makes use of RFC 7413 or TCP Fast Open (TFO)
+      bool fast_open = false;
     };
     /// Set before calling start().
     Config config;
@@ -399,6 +401,14 @@ namespace SimpleWeb {
         acceptor = std::unique_ptr<asio::ip::tcp::acceptor>(new asio::ip::tcp::acceptor(*io_service));
       acceptor->open(endpoint.protocol());
       acceptor->set_option(asio::socket_base::reuse_address(config.reuse_address));
+      if (config.fast_open && is_tcp_fast_open_supported(connection_mode::server))
+      {
+#if defined(__linux__) && defined(TCP_FASTOPEN)
+        const int qlen = 5; // This seems to be the value that is used in other examples.
+        boost::system::error_code ec;
+        acceptor->set_option(boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_FASTOPEN>(qlen), ec);
+#endif // End Linux
+      }
       acceptor->bind(endpoint);
 
       after_bind();
