@@ -35,24 +35,14 @@ namespace SimpleWeb {
   {
 #if defined(__linux__)
     std::ifstream ifs("/proc/sys/net/ipv4/tcp_fastopen");
-    if (!ifs.is_open()) { return false; }
+    if (!ifs) { return false; }
     std::string line;
     if (!std::getline(ifs, line)) { return false; }
     std::istringstream iss(line);
-    uint8_t value = 0;
+    int value = 0;
     iss >> value;
-    if (iss.fail()) { return false; } // Should never happen in theory.
-    auto mode_matches_request = [](const connection_mode mode, const uint8_t value)
-    {
-      const auto m = static_cast<uint8_t>(mode);
-      if (mode == connection_mode::client ||
-          mode == connection_mode::server)
-      {
-        return (m & value) != 0;
-      }
-      return false;
-    };
-    return mode_matches_request(mode, value);
+    if (!iss) { return false; } // Should never happen in theory.
+    return (static_cast<int>(mode) & value) != 0;
 #else
     (void)mode;
     return false;

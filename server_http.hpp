@@ -351,7 +351,7 @@ namespace SimpleWeb {
       std::string address;
       /// Set to false to avoid binding the socket to an address that is already in use. Defaults to true.
       bool reuse_address = true;
-      /// Makes use of RFC 7413 or TCP Fast Open (TFO)
+      /// Make use of RFC 7413 or TCP Fast Open (TFO)
       bool fast_open = false;
     };
     /// Set before calling start().
