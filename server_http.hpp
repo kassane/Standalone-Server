@@ -401,11 +401,10 @@ namespace SimpleWeb {
         acceptor = std::unique_ptr<asio::ip::tcp::acceptor>(new asio::ip::tcp::acceptor(*io_service));
       acceptor->open(endpoint.protocol());
       acceptor->set_option(asio::socket_base::reuse_address(config.reuse_address));
-      if (config.fast_open && is_tcp_fast_open_supported(connection_mode::server))
-      {
+      if(config.fast_open) {
 #if defined(__linux__) && defined(TCP_FASTOPEN)
         const int qlen = 5; // This seems to be the value that is used in other examples.
-        error_code ec{};
+        error_code ec;
         acceptor->set_option(asio::detail::socket_option::integer<IPPROTO_TCP, TCP_FASTOPEN>(qlen), ec);
 #endif // End Linux
       }

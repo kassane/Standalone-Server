@@ -8,10 +8,6 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#if defined(__linux__)
-#include <fstream>
-#include <sstream>
-#endif
 
 #if __cplusplus > 201402L || _MSVC_LANG > 201402L
 #include <string_view>
@@ -30,25 +26,6 @@ namespace SimpleWeb {
 #endif
 
 namespace SimpleWeb {
-  enum class connection_mode { client = 1, server = 2 };
-  inline bool is_tcp_fast_open_supported(const connection_mode mode)
-  {
-#if defined(__linux__)
-    std::ifstream ifs("/proc/sys/net/ipv4/tcp_fastopen");
-    if (!ifs) { return false; }
-    std::string line;
-    if (!std::getline(ifs, line)) { return false; }
-    std::istringstream iss(line);
-    int value = 0;
-    iss >> value;
-    if (!iss) { return false; } // Should never happen in theory.
-    return (static_cast<int>(mode) & value) != 0;
-#else
-    (void)mode;
-    return false;
-#endif
-  }
-
   inline bool case_insensitive_equal(const std::string &str1, const std::string &str2) noexcept {
     return str1.size() == str2.size() &&
            std::equal(str1.begin(), str1.end(), str2.begin(), [](char a, char b) {
