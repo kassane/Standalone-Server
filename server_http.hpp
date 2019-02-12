@@ -251,7 +251,7 @@ namespace SimpleWeb {
       /// The time point when the request header was fully read.
       std::chrono::system_clock::time_point header_read_time;
 
-      std::string remote_endpoint_address() noexcept {
+      std::string remote_endpoint_address() const noexcept {
         try {
           return remote_endpoint->address().to_string();
         }
@@ -260,12 +260,12 @@ namespace SimpleWeb {
         }
       }
 
-      unsigned short remote_endpoint_port() noexcept {
+      unsigned short remote_endpoint_port() const noexcept {
         return remote_endpoint->port();
       }
 
       /// Returns query keys with percent-decoded values.
-      CaseInsensitiveMultimap parse_query_string() noexcept {
+      CaseInsensitiveMultimap parse_query_string() const noexcept {
         return SimpleWeb::QueryString::parse(query_string);
       }
     };
