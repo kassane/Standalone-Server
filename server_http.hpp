@@ -359,9 +359,9 @@ namespace SimpleWeb {
 
   private:
     class regex_orderable : public regex::regex {
+    public:
       std::string str;
 
-    public:
       regex_orderable(const char *regex_cstr) : regex::regex(regex_cstr), str(regex_cstr) {}
       regex_orderable(std::string regex_str_) : regex::regex(regex_str_), str(std::move(regex_str_)) {}
       bool operator<(const regex_orderable &rhs) const noexcept {
