@@ -170,12 +170,12 @@ namespace SimpleWeb {
       });
 
       {
-        std::unique_lock<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        std::lock_guard<std::mutex> lock(concurrent_synchronous_requests_mutex);
         ++concurrent_synchronous_requests;
       }
       io_service->run();
       {
-        std::unique_lock<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        std::lock_guard<std::mutex> lock(concurrent_synchronous_requests_mutex);
         --concurrent_synchronous_requests;
         if(!concurrent_synchronous_requests)
           io_service->reset();
@@ -200,12 +200,12 @@ namespace SimpleWeb {
       });
 
       {
-        std::unique_lock<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        std::lock_guard<std::mutex> lock(concurrent_synchronous_requests_mutex);
         ++concurrent_synchronous_requests;
       }
       io_service->run();
       {
-        std::unique_lock<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        std::lock_guard<std::mutex> lock(concurrent_synchronous_requests_mutex);
         --concurrent_synchronous_requests;
         if(!concurrent_synchronous_requests)
           io_service->reset();
@@ -226,7 +226,7 @@ namespace SimpleWeb {
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
       session->callback = [this, response, request_callback](const std::shared_ptr<Connection> &connection, const error_code &ec) {
         {
-          std::unique_lock<std::mutex> lock(this->connections_mutex);
+          std::lock_guard<std::mutex> lock(this->connections_mutex);
           connection->in_use = false;
 
           // Remove unused connections, but keep one open for HTTP persistent connection:
@@ -291,7 +291,7 @@ namespace SimpleWeb {
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
       session->callback = [this, response, request_callback](const std::shared_ptr<Connection> &connection, const error_code &ec) {
         {
-          std::unique_lock<std::mutex> lock(this->connections_mutex);
+          std::lock_guard<std::mutex> lock(this->connections_mutex);
           connection->in_use = false;
 
           // Remove unused connections, but keep one open for HTTP persistent connection:
@@ -342,7 +342,7 @@ namespace SimpleWeb {
 
     /// Close connections
     void stop() noexcept {
-      std::unique_lock<std::mutex> lock(connections_mutex);
+      std::lock_guard<std::mutex> lock(connections_mutex);
       for(auto it = connections.begin(); it != connections.end();) {
         error_code ec;
         (*it)->socket->lowest_layer().cancel(ec);
@@ -380,7 +380,7 @@ namespace SimpleWeb {
 
     std::shared_ptr<Connection> get_connection() noexcept {
       std::shared_ptr<Connection> connection;
-      std::unique_lock<std::mutex> lock(connections_mutex);
+      std::lock_guard<std::mutex> lock(connections_mutex);
 
       if(!io_service) {
         io_service = std::make_shared<asio::io_service>();

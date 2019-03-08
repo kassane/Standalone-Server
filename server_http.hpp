@@ -457,7 +457,7 @@ namespace SimpleWeb {
         acceptor->close(ec);
 
         {
-          std::unique_lock<std::mutex> lock(*connections_mutex);
+          std::lock_guard<std::mutex> lock(*connections_mutex);
           for(auto &connection : *connections)
             connection->close();
           connections->clear();
@@ -495,7 +495,7 @@ namespace SimpleWeb {
       auto connections_mutex = this->connections_mutex;
       auto connection = std::shared_ptr<Connection>(new Connection(handler_runner, std::forward<Args>(args)...), [connections, connections_mutex](Connection *connection) {
         {
-          std::unique_lock<std::mutex> lock(*connections_mutex);
+          std::lock_guard<std::mutex> lock(*connections_mutex);
           auto it = connections->find(connection);
           if(it != connections->end())
             connections->erase(it);
@@ -503,7 +503,7 @@ namespace SimpleWeb {
         delete connection;
       });
       {
-        std::unique_lock<std::mutex> lock(*connections_mutex);
+        std::lock_guard<std::mutex> lock(*connections_mutex);
         connections->emplace(connection.get());
       }
       return connection;
@@ -683,7 +683,7 @@ namespace SimpleWeb {
         if(it != session->request->header.end()) {
           // remove connection from connections
           {
-            std::unique_lock<std::mutex> lock(*connections_mutex);
+            std::lock_guard<std::mutex> lock(*connections_mutex);
             auto it = connections->find(session->connection.get());
             if(it != connections->end())
               connections->erase(it);
