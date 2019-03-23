@@ -1,7 +1,6 @@
-#include <vector>
-
-#include "check.hpp"
+#include "assert.hpp"
 #include "crypto.hpp"
+#include <vector>
 
 using namespace std;
 using namespace SimpleWeb;
