@@ -1,7 +1,6 @@
 #include "client_http.hpp"
 #include "server_http.hpp"
-
-#include <cassert>
+#include "check.hpp"
 
 using namespace std;
 
@@ -18,29 +17,29 @@ int main() {
     SimpleWeb::ScopeRunner scope_runner;
     std::thread cancel_thread;
     {
-      assert(scope_runner.count == 0);
+      ASSERT(scope_runner.count == 0);
       auto lock = scope_runner.continue_lock();
-      assert(lock);
-      assert(scope_runner.count == 1);
+      ASSERT(lock);
+      ASSERT(scope_runner.count == 1);
       {
         auto lock = scope_runner.continue_lock();
-        assert(lock);
-        assert(scope_runner.count == 2);
+        ASSERT(lock);
+        ASSERT(scope_runner.count == 2);
       }
-      assert(scope_runner.count == 1);
+      ASSERT(scope_runner.count == 1);
       cancel_thread = thread([&scope_runner] {
         scope_runner.stop();
-        assert(scope_runner.count == -1);
+        ASSERT(scope_runner.count == -1);
       });
       this_thread::sleep_for(chrono::milliseconds(500));
-      assert(scope_runner.count == 1);
+      ASSERT(scope_runner.count == 1);
     }
     cancel_thread.join();
-    assert(scope_runner.count == -1);
+    ASSERT(scope_runner.count == -1);
     auto lock = scope_runner.continue_lock();
-    assert(!lock);
+    ASSERT(!lock);
     scope_runner.stop();
-    assert(scope_runner.count == -1);
+    ASSERT(scope_runner.count == -1);
 
     scope_runner.count = 0;
 
@@ -48,12 +47,12 @@ int main() {
     for(size_t c = 0; c < 100; ++c) {
       threads.emplace_back([&scope_runner] {
         auto lock = scope_runner.continue_lock();
-        assert(scope_runner.count > 0);
+        ASSERT(scope_runner.count > 0);
       });
     }
     for(auto &thread : threads)
       thread.join();
-    assert(scope_runner.count == 0);
+    ASSERT(scope_runner.count == 0);
   }
 
   HttpServer server;
@@ -65,8 +64,8 @@ int main() {
     *response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n"
               << content;
 
-    assert(!request->remote_endpoint_address().empty());
-    assert(request->remote_endpoint_port() != 0);
+    ASSERT(!request->remote_endpoint_address().empty());
+    ASSERT(request->remote_endpoint_port() != 0);
   };
 
   server.resource["^/string/dup$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
@@ -79,8 +78,8 @@ int main() {
     *response << content;
     response->send();
 
-    assert(!request->remote_endpoint_address().empty());
-    assert(request->remote_endpoint_port() != 0);
+    ASSERT(!request->remote_endpoint_address().empty());
+    ASSERT(request->remote_endpoint_port() != 0);
   };
 
   server.resource["^/string2$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
@@ -130,18 +129,18 @@ int main() {
   };
 
   server.resource["^/query_string$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
-    assert(request->path == "/query_string");
-    assert(request->query_string == "testing");
+    ASSERT(request->path == "/query_string");
+    ASSERT(request->query_string == "testing");
     auto queries = request->parse_query_string();
     auto it = queries.find("Testing");
-    assert(it != queries.end() && it->first == "testing" && it->second == "");
+    ASSERT(it != queries.end() && it->first == "testing" && it->second == "");
     response->write(request->query_string);
   };
 
   server.resource["^/chunked$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
-    assert(request->path == "/chunked");
+    ASSERT(request->path == "/chunked");
 
-    assert(request->content.string() == "SimpleWeb in\r\n\r\nchunks.");
+    ASSERT(request->content.string() == "SimpleWeb in\r\n\r\nchunks.");
 
     response->write("6\r\nSimple\r\n3\r\nWeb\r\nE\r\n in\r\n\r\nchunks.\r\n0\r\n\r\n", {{"Transfer-Encoding", "chunked"}});
   };
@@ -169,43 +168,43 @@ int main() {
     {
       stringstream output;
       auto r = client.request("POST", "/string", "A string");
-      assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
+      ASSERT(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
       output << r->content.rdbuf();
-      assert(output.str() == "A string");
+      ASSERT(output.str() == "A string");
     }
 
     {
       auto r = client.request("POST", "/string", "A string");
-      assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
-      assert(r->content.string() == "A string");
+      ASSERT(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
+      ASSERT(r->content.string() == "A string");
     }
 
     {
       stringstream output;
       auto r = client.request("POST", "/string2", "A string");
-      assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
+      ASSERT(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
       output << r->content.rdbuf();
-      assert(output.str() == "A string");
+      ASSERT(output.str() == "A string");
     }
 
     {
       stringstream output;
       auto r = client.request("POST", "/string3", "A string");
-      assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
+      ASSERT(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
       output << r->content.rdbuf();
-      assert(output.str() == "A string");
+      ASSERT(output.str() == "A string");
     }
 
     {
       stringstream output;
       auto r = client.request("POST", "/string4", "A string");
-      assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::client_error_forbidden);
-      assert(r->header.size() == 3);
-      assert(r->header.find("test1")->second == "test2");
-      assert(r->header.find("tEst3")->second == "test4");
-      assert(r->header.find("content-length")->second == "0");
+      ASSERT(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::client_error_forbidden);
+      ASSERT(r->header.size() == 3);
+      ASSERT(r->header.find("test1")->second == "test2");
+      ASSERT(r->header.find("tEst3")->second == "test4");
+      ASSERT(r->header.find("content-length")->second == "0");
       output << r->content.rdbuf();
-      assert(output.str() == "");
+      ASSERT(output.str() == "");
     }
 
     {
@@ -213,7 +212,7 @@ int main() {
       stringstream content("A string");
       auto r = client.request("POST", "/string", content);
       output << r->content.rdbuf();
-      assert(output.str() == "A string");
+      ASSERT(output.str() == "A string");
     }
 
     {
@@ -222,25 +221,25 @@ int main() {
       stringstream content("A string\n");
       auto r = client.request("POST", "/string/dup", content);
       output << r->content.rdbuf();
-      assert(output.str() == "A string\nA string\n");
+      ASSERT(output.str() == "A string\nA string\n");
     }
 
     {
       stringstream output;
       auto r = client.request("GET", "/info", "", {{"Test Parameter", "test value"}});
       output << r->content.rdbuf();
-      assert(output.str() == "GET /info 1.1 test value");
+      ASSERT(output.str() == "GET /info 1.1 test value");
     }
 
     {
       stringstream output;
       auto r = client.request("GET", "/match/123");
       output << r->content.rdbuf();
-      assert(output.str() == "123");
+      ASSERT(output.str() == "123");
     }
     {
       auto r = client.request("POST", "/chunked", "6\r\nSimple\r\n3\r\nWeb\r\nE\r\n in\r\n\r\nchunks.\r\n0\r\n\r\n", {{"Transfer-Encoding", "chunked"}});
-      assert(r->content.string() == "SimpleWeb in\r\n\r\nchunks.");
+      ASSERT(r->content.string() == "SimpleWeb in\r\n\r\nchunks.");
     }
   }
   {
@@ -253,8 +252,8 @@ int main() {
       stringstream content("A string");
       auto r = client.request("POST", "/string", content);
       output << r->content.rdbuf();
-      assert(output.str() == "A string");
-      assert(client.connections.size() == 1);
+      ASSERT(output.str() == "A string");
+      ASSERT(client.connections.size() == 1);
       connection = client.connections.begin()->get();
     }
 
@@ -262,26 +261,26 @@ int main() {
       stringstream output;
       auto r = client.request("POST", "/string", "A string");
       output << r->content.rdbuf();
-      assert(output.str() == "A string");
-      assert(client.connections.size() == 1);
-      assert(connection == client.connections.begin()->get());
+      ASSERT(output.str() == "A string");
+      ASSERT(client.connections.size() == 1);
+      ASSERT(connection == client.connections.begin()->get());
     }
 
     {
       stringstream output;
       auto r = client.request("GET", "/header", "", {{"test1", "test"}, {"test2", "ing"}});
       output << r->content.rdbuf();
-      assert(output.str() == "testing");
-      assert(client.connections.size() == 1);
-      assert(connection == client.connections.begin()->get());
+      ASSERT(output.str() == "testing");
+      ASSERT(client.connections.size() == 1);
+      ASSERT(connection == client.connections.begin()->get());
     }
 
     {
       stringstream output;
       auto r = client.request("GET", "/query_string?testing");
-      assert(r->content.string() == "testing");
-      assert(client.connections.size() == 1);
-      assert(connection == client.connections.begin()->get());
+      ASSERT(r->content.string() == "testing");
+      ASSERT(client.connections.size() == 1);
+      ASSERT(connection == client.connections.begin()->get());
     }
   }
 
@@ -290,14 +289,14 @@ int main() {
     HttpClient client("localhost:8080");
     bool call = false;
     client.request("GET", "/match/123", [&call](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
-      assert(!ec);
+      ASSERT(!ec);
       stringstream output;
       output << response->content.rdbuf();
-      assert(output.str() == "123");
+      ASSERT(output.str() == "123");
       call = true;
     });
     client.io_service->run();
-    assert(call);
+    ASSERT(call);
 
     {
       vector<int> calls(100, 0);
@@ -305,22 +304,22 @@ int main() {
       for(size_t c = 0; c < 100; ++c) {
         threads.emplace_back([c, &client, &calls] {
           client.request("GET", "/match/123", [c, &calls](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
-            assert(!ec);
+            ASSERT(!ec);
             stringstream output;
             output << response->content.rdbuf();
-            assert(output.str() == "123");
+            ASSERT(output.str() == "123");
             calls[c] = 1;
           });
         });
       }
       for(auto &thread : threads)
         thread.join();
-      assert(client.connections.size() == 100);
+      ASSERT(client.connections.size() == 100);
       client.io_service->reset();
       client.io_service->run();
-      assert(client.connections.size() == 1);
+      ASSERT(client.connections.size() == 1);
       for(auto call : calls)
-        assert(call);
+        ASSERT(call);
     }
   }
 
@@ -334,38 +333,38 @@ int main() {
         threads.emplace_back([c, &client, &calls] {
           try {
             auto r = client.request("GET", "/match/123");
-            assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
-            assert(r->content.string() == "123");
+            ASSERT(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
+            ASSERT(r->content.string() == "123");
             calls[c] = 1;
           }
           catch(...) {
-            assert(false);
+            ASSERT(false);
           }
         });
       }
       for(auto &thread : threads)
         thread.join();
-      assert(client.connections.size() == 1);
+      ASSERT(client.connections.size() == 1);
       for(auto call : calls)
-        assert(call);
+        ASSERT(call);
     }
   }
 
   // Test multiple requests through a persistent connection
   {
     HttpClient client("localhost:8080");
-    assert(client.connections.size() == 0);
+    ASSERT(client.connections.size() == 0);
     for(size_t c = 0; c < 5000; ++c) {
       auto r1 = client.request("POST", "/string", "A string");
-      assert(SimpleWeb::status_code(r1->status_code) == SimpleWeb::StatusCode::success_ok);
-      assert(r1->content.string() == "A string");
-      assert(client.connections.size() == 1);
+      ASSERT(SimpleWeb::status_code(r1->status_code) == SimpleWeb::StatusCode::success_ok);
+      ASSERT(r1->content.string() == "A string");
+      ASSERT(client.connections.size() == 1);
 
       stringstream content("A string");
       auto r2 = client.request("POST", "/string", content);
-      assert(SimpleWeb::status_code(r2->status_code) == SimpleWeb::StatusCode::success_ok);
-      assert(r2->content.string() == "A string");
-      assert(client.connections.size() == 1);
+      ASSERT(SimpleWeb::status_code(r2->status_code) == SimpleWeb::StatusCode::success_ok);
+      ASSERT(r2->content.string() == "A string");
+      ASSERT(client.connections.size() == 1);
     }
   }
 
@@ -374,18 +373,18 @@ int main() {
     {
       HttpClient client("localhost:8080");
       auto r = client.request("POST", "/string", "A string");
-      assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
-      assert(r->content.string() == "A string");
-      assert(client.connections.size() == 1);
+      ASSERT(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
+      ASSERT(r->content.string() == "A string");
+      ASSERT(client.connections.size() == 1);
     }
 
     {
       HttpClient client("localhost:8080");
       stringstream content("A string");
       auto r = client.request("POST", "/string", content);
-      assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
-      assert(r->content.string() == "A string");
-      assert(client.connections.size() == 1);
+      ASSERT(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
+      ASSERT(r->content.string() == "A string");
+      ASSERT(client.connections.size() == 1);
     }
   }
 
@@ -397,7 +396,7 @@ int main() {
     client.io_service = io_service;
     client.request("GET", "/work", [&call](shared_ptr<HttpClient::Response> /*response*/, const SimpleWeb::error_code &ec) {
       call = true;
-      assert(ec);
+      ASSERT(ec);
     });
     thread thread([io_service] {
       io_service->run();
@@ -406,7 +405,7 @@ int main() {
     client.stop();
     this_thread::sleep_for(chrono::milliseconds(100));
     thread.join();
-    assert(call);
+    ASSERT(call);
   }
 
   // Test Client destructor that should cancel the client's request
@@ -416,7 +415,7 @@ int main() {
       HttpClient client("localhost:8080");
       client.io_service = io_service;
       client.request("GET", "/work", [](shared_ptr<HttpClient::Response> /*response*/, const SimpleWeb::error_code & /*ec*/) {
-        assert(false);
+        ASSERT(false);
       });
       thread thread([io_service] {
         io_service->run();
@@ -445,7 +444,7 @@ int main() {
           this_thread::sleep_for(chrono::seconds(5));
           response->write(SimpleWeb::StatusCode::success_ok, "test");
           response->send([](const SimpleWeb::error_code & /*ec*/) {
-            assert(false);
+            ASSERT(false);
           });
         });
         sleep_thread.detach();
@@ -460,7 +459,7 @@ int main() {
         HttpClient client("localhost:8081");
         try {
           auto r = client.request("GET", "/test");
-          assert(false);
+          ASSERT(false);
         }
         catch(...) {
           client_catch = true;
@@ -470,8 +469,8 @@ int main() {
       this_thread::sleep_for(chrono::seconds(1));
     }
     this_thread::sleep_for(chrono::seconds(5));
-    assert(call);
-    assert(client_catch);
+    ASSERT(call);
+    ASSERT(client_catch);
     io_service->stop();
   }
 }
