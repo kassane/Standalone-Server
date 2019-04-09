@@ -4,10 +4,6 @@
 
 using namespace std;
 
-#ifndef USE_STANDALONE_ASIO
-namespace asio = boost::asio;
-#endif
-
 using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
 using HttpClient = SimpleWeb::Client<SimpleWeb::HTTP>;
 
@@ -315,7 +311,7 @@ int main() {
       for(auto &thread : threads)
         thread.join();
       ASSERT(client.connections.size() == 100);
-      client.io_service->reset();
+      SimpleWeb::restart(*client.io_service);
       client.io_service->run();
       ASSERT(client.connections.size() == 1);
       for(auto call : calls)
@@ -390,7 +386,7 @@ int main() {
 
   // Test Client client's stop()
   for(size_t c = 0; c < 40; ++c) {
-    auto io_service = make_shared<asio::io_service>();
+    auto io_service = make_shared<SimpleWeb::io_context>();
     bool call = false;
     HttpClient client("localhost:8080");
     client.io_service = io_service;
@@ -410,7 +406,7 @@ int main() {
 
   // Test Client destructor that should cancel the client's request
   for(size_t c = 0; c < 40; ++c) {
-    auto io_service = make_shared<asio::io_service>();
+    auto io_service = make_shared<SimpleWeb::io_context>();
     {
       HttpClient client("localhost:8080");
       client.io_service = io_service;
@@ -431,7 +427,7 @@ int main() {
 
   // Test server destructor
   {
-    auto io_service = make_shared<asio::io_service>();
+    auto io_service = make_shared<SimpleWeb::io_context>();
     bool call = false;
     bool client_catch = false;
     {

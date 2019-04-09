@@ -1,6 +1,7 @@
 #ifndef SERVER_HTTP_HPP
 #define SERVER_HTTP_HPP
 
+#include "asio_compatibility.hpp"
 #include "utility.hpp"
 #include <functional>
 #include <iostream>
@@ -11,25 +12,6 @@
 #include <sstream>
 #include <thread>
 #include <unordered_set>
-
-#ifdef USE_STANDALONE_ASIO
-#include <asio.hpp>
-#include <asio/steady_timer.hpp>
-namespace SimpleWeb {
-  using error_code = std::error_code;
-  using errc = std::errc;
-  namespace make_error_code = std;
-} // namespace SimpleWeb
-#else
-#include <boost/asio.hpp>
-#include <boost/asio/steady_timer.hpp>
-namespace SimpleWeb {
-  namespace asio = boost::asio;
-  using error_code = boost::system::error_code;
-  namespace errc = boost::system::errc;
-  namespace make_error_code = boost::system::errc;
-} // namespace SimpleWeb
-#endif
 
 // Late 2017 TODO: remove the following checks and always use std::regex
 #ifdef USE_BOOST_REGEX
@@ -63,10 +45,10 @@ namespace SimpleWeb {
       std::shared_ptr<Session> session;
       long timeout_content;
 
-      asio::io_service::strand strand;
+      io_context::strand strand;
       std::list<std::pair<std::shared_ptr<asio::streambuf>, std::function<void(const error_code &)>>> send_queue;
 
-      Response(std::shared_ptr<Session> session_, long timeout_content) noexcept : std::ostream(nullptr), session(std::move(session_)), timeout_content(timeout_content), strand(session->connection->socket->get_io_service()) {
+      Response(std::shared_ptr<Session> session_, long timeout_content) noexcept : std::ostream(nullptr), session(std::move(session_)), timeout_content(timeout_content), strand(get_socket_context(*session->connection->socket)) {
         rdbuf(streambuf.get());
       }
 
@@ -90,8 +72,8 @@ namespace SimpleWeb {
 
       void send_from_queue() {
         auto self = this->shared_from_this();
-        strand.post([self]() {
-          asio::async_write(*self->session->connection->socket, *self->send_queue.begin()->first, self->strand.wrap([self](const error_code &ec, std::size_t /*bytes_transferred*/) {
+        SimpleWeb::post(strand, [self]() {
+          asio::async_write(*self->session->connection->socket, *self->send_queue.begin()->first, SimpleWeb::bind_executor(self->strand, [self](const error_code &ec, std::size_t /*bytes_transferred*/) {
             auto lock = self->session->connection->handler_runner->continue_lock();
             if(!lock)
               return;
@@ -142,7 +124,7 @@ namespace SimpleWeb {
         rdbuf(this->streambuf.get());
 
         auto self = this->shared_from_this();
-        strand.post([self, streambuf, callback]() {
+        SimpleWeb::post(strand, [self, streambuf, callback]() {
           self->send_queue.emplace_back(streambuf, callback);
           if(self->send_queue.size() == 1)
             self->send_from_queue();
@@ -296,8 +278,12 @@ namespace SimpleWeb {
           return;
         }
 
-        timer = std::unique_ptr<asio::steady_timer>(new asio::steady_timer(socket->get_io_service()));
-        timer->expires_from_now(std::chrono::seconds(seconds));
+        timer = std::unique_ptr<asio::steady_timer>(new asio::steady_timer(get_socket_context(*socket)));
+        try {
+          timer_expires_after(*timer, std::chrono::seconds(seconds));
+        }
+        catch(...) {
+        }
         auto self = this->shared_from_this();
         timer->async_wait([self](const error_code &ec) {
           if(!ec)
@@ -307,8 +293,11 @@ namespace SimpleWeb {
 
       void cancel_timeout() noexcept {
         if(timer) {
-          error_code ec;
-          timer->cancel(ec);
+          try {
+            timer->cancel();
+          }
+          catch(...) {
+          }
         }
       }
     };
@@ -380,7 +369,7 @@ namespace SimpleWeb {
     std::function<void(std::unique_ptr<socket_type> &, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
 
     /// If you have your own asio::io_service, store its pointer here before running start().
-    std::shared_ptr<asio::io_service> io_service;
+    std::shared_ptr<io_context> io_service;
 
     /// If you know the server port in advance, use start() instead.
     /// Returns assigned port. If io_service is not set, an internal io_service is created instead.
@@ -388,12 +377,12 @@ namespace SimpleWeb {
     unsigned short bind() {
       asio::ip::tcp::endpoint endpoint;
       if(config.address.size() > 0)
-        endpoint = asio::ip::tcp::endpoint(asio::ip::address::from_string(config.address), config.port);
+        endpoint = asio::ip::tcp::endpoint(make_address(config.address), config.port);
       else
         endpoint = asio::ip::tcp::endpoint(asio::ip::tcp::v6(), config.port);
 
       if(!io_service) {
-        io_service = std::make_shared<asio::io_service>();
+        io_service = std::make_shared<io_context>();
         internal_io_service = true;
       }
 
@@ -424,7 +413,7 @@ namespace SimpleWeb {
 
       if(internal_io_service) {
         if(io_service->stopped())
-          io_service->reset();
+          restart(*io_service);
 
         // If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
         threads.clear();

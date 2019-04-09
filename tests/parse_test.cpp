@@ -147,7 +147,7 @@ int main() {
   ASSERT(fields_result1 == fields_result2 && fields_result1 == fields);
 
   auto serverTest = make_shared<ServerTest>();
-  serverTest->io_service = std::make_shared<asio::io_service>();
+  serverTest->io_service = std::make_shared<io_context>();
 
   serverTest->parse_request_test();
 
@@ -160,7 +160,7 @@ int main() {
   clientTest2->parse_response_header_test();
 
 
-  asio::io_service io_service;
+  io_context io_service;
   asio::ip::tcp::socket socket(io_service);
   SimpleWeb::Server<HTTP>::Request request(static_cast<size_t>(-1), nullptr);
   {
