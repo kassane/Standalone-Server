@@ -5,9 +5,15 @@ using namespace SimpleWeb;
 
 
 int main() {
+  ASSERT(status_code("") == StatusCode::unknown);
+  ASSERT(status_code("Error") == StatusCode::unknown);
   ASSERT(status_code("000 Error") == StatusCode::unknown);
   ASSERT(status_code(StatusCode::unknown) == "");
+  ASSERT(static_cast<int>(status_code("050 Custom")) == 50);
+  ASSERT(static_cast<int>(status_code("950 Custom")) == 950);
   ASSERT(status_code("100 Continue") == StatusCode::information_continue);
+  ASSERT(status_code("100 C") == StatusCode::information_continue);
+  ASSERT(status_code("100") == StatusCode::information_continue);
   ASSERT(status_code(StatusCode::information_continue) == "100 Continue");
   ASSERT(status_code("200 OK") == StatusCode::success_ok);
   ASSERT(status_code(StatusCode::success_ok) == "200 OK");
