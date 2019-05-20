@@ -25,16 +25,13 @@ namespace SimpleWeb {
 #endif
 
 namespace SimpleWeb {
-#if(USE_STANDALONE_ASIO && ASIO_VERSION >= 101300) || BOOST_ASIO_VERSION >= 101300 // TODO: change to 101300
+#if(USE_STANDALONE_ASIO && ASIO_VERSION >= 101300) || BOOST_ASIO_VERSION >= 101300
   using io_context = asio::io_context;
   using resolver_results = asio::ip::tcp::resolver::results_type;
   using async_connect_endpoint = asio::ip::tcp::endpoint;
 
   inline void restart(io_context &context) noexcept {
     context.restart();
-  }
-  inline void timer_expires_after(asio::steady_timer &timer, const asio::steady_timer::duration &duration) {
-    timer.expires_after(duration);
   }
   inline asio::ip::address make_address(const std::string &str) noexcept {
     return asio::ip::make_address(str);
@@ -62,9 +59,6 @@ namespace SimpleWeb {
 
   inline void restart(io_context &context) noexcept {
     context.reset();
-  }
-  inline void timer_expires_after(asio::steady_timer &timer, const asio::steady_timer::duration &duration) {
-    timer.expires_from_now(duration);
   }
   inline asio::ip::address make_address(const std::string &str) noexcept {
     return asio::ip::address::from_string(str);
