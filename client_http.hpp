@@ -99,7 +99,7 @@ namespace SimpleWeb {
           timer = nullptr;
           return;
         }
-        timer = std::unique_ptr<asio::steady_timer>(new asio::steady_timer(get_socket_context(*socket), std::chrono::seconds(seconds)));
+        timer = std::unique_ptr<asio::steady_timer>(new asio::steady_timer(get_socket_executor(*socket), std::chrono::seconds(seconds)));
         auto self = this->shared_from_this();
         timer->async_wait([self](const error_code &ec) {
           if(!ec) {
