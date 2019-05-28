@@ -77,22 +77,30 @@ namespace SimpleWeb {
           auto lock = self->session->connection->handler_runner->continue_lock();
           if(!lock)
             return;
-          std::lock_guard<std::mutex> send_queue_lock(self->send_queue_mutex);
+          std::unique_lock<std::mutex> send_queue_lock(self->send_queue_mutex);
           if(!ec) {
             auto it = self->send_queue.begin();
-            if(it->second)
-              it->second(ec);
+            auto callback = std::move(it->second);
             self->send_queue.erase(it);
             if(self->send_queue.size() > 0)
               self->send_from_queue();
+
+            send_queue_lock.unlock();
+            if(callback)
+              callback(ec);
           }
           else {
             // All handlers in the queue is called with ec:
+            std::vector<std::function<void(const error_code &)>> callbacks;
             for(auto &pair : self->send_queue) {
               if(pair.second)
-                pair.second(ec);
+                callbacks.emplace_back(std::move(pair.second));
             }
             self->send_queue.clear();
+
+            send_queue_lock.unlock();
+            for(auto &callback : callbacks)
+              callback(ec);
           }
         });
       }
