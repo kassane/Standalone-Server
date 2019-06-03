@@ -42,11 +42,7 @@ namespace SimpleWeb {
   }
   template <typename handler_type>
   void async_resolve(asio::ip::tcp::resolver &resolver, const std::pair<std::string, std::string> &host_port, handler_type &&handler) {
-    resolver.async_resolve(host_port.first, host_port.second, handler);
-  }
-  template <typename executor_type, typename handler_type>
-  void post(executor_type &executor, handler_type &&handler) {
-    asio::post(executor, handler);
+    resolver.async_resolve(host_port.first, host_port.second, std::forward<handler_type>(handler));
   }
 #else
   using io_context = asio::io_service;
@@ -65,11 +61,7 @@ namespace SimpleWeb {
   }
   template <typename handler_type>
   void async_resolve(asio::ip::tcp::resolver &resolver, const std::pair<std::string, std::string> &host_port, handler_type &&handler) {
-    resolver.async_resolve(asio::ip::tcp::resolver::query(host_port.first, host_port.second), handler);
-  }
-  template <typename executor_type, typename handler_type>
-  void post(executor_type &executor, handler_type &&handler) {
-    executor.post(handler);
+    resolver.async_resolve(asio::ip::tcp::resolver::query(host_port.first, host_port.second), std::forward<handler_type>(handler));
   }
 #endif
 } // namespace SimpleWeb
