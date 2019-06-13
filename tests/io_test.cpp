@@ -317,6 +317,27 @@ int main() {
       for(auto call : calls)
         ASSERT(call);
     }
+
+    // Test concurrent requests from different clients
+    {
+      vector<int> calls(10, 0);
+      vector<thread> threads;
+      for(size_t c = 0; c < 10; ++c) {
+        threads.emplace_back([c, &calls] {
+          HttpClient client("localhost:8080");
+          client.request("POST", "/string", "A string", [c, &calls](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+            ASSERT(!ec);
+            ASSERT(response->content.string() == "A string");
+            calls[c] = 1;
+          });
+          client.io_service->run();
+        });
+      }
+      for(auto &thread : threads)
+        thread.join();
+      for(auto call : calls)
+        ASSERT(call);
+    }
   }
 
   // Test concurrent synchronous request calls
