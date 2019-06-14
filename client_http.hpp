@@ -1,33 +1,13 @@
 #ifndef CLIENT_HTTP_HPP
 #define CLIENT_HTTP_HPP
 
+#include "asio_compatibility.hpp"
 #include "utility.hpp"
 #include <limits>
 #include <mutex>
 #include <random>
 #include <unordered_set>
 #include <vector>
-
-#ifdef USE_STANDALONE_ASIO
-#include <asio.hpp>
-#include <asio/steady_timer.hpp>
-namespace SimpleWeb {
-  using error_code = std::error_code;
-  using errc = std::errc;
-  using system_error = std::system_error;
-  namespace make_error_code = std;
-} // namespace SimpleWeb
-#else
-#include <boost/asio.hpp>
-#include <boost/asio/steady_timer.hpp>
-namespace SimpleWeb {
-  namespace asio = boost::asio;
-  using error_code = boost::system::error_code;
-  namespace errc = boost::system::errc;
-  using system_error = boost::system::system_error;
-  namespace make_error_code = boost::system::errc;
-} // namespace SimpleWeb
-#endif
 
 namespace SimpleWeb {
   template <class socket_type>
@@ -119,21 +99,25 @@ namespace SimpleWeb {
           timer = nullptr;
           return;
         }
-        timer = std::unique_ptr<asio::steady_timer>(new asio::steady_timer(socket->get_io_service()));
-        timer->expires_from_now(std::chrono::seconds(seconds));
-        auto self = this->shared_from_this();
-        timer->async_wait([self](const error_code &ec) {
+        timer = std::unique_ptr<asio::steady_timer>(new asio::steady_timer(get_socket_executor(*socket), std::chrono::seconds(seconds)));
+        std::weak_ptr<Connection> self_weak(this->shared_from_this()); // To avoid keeping Connection instance alive longer than needed
+        timer->async_wait([self_weak](const error_code &ec) {
           if(!ec) {
-            error_code ec;
-            self->socket->lowest_layer().cancel(ec);
+            if(auto self = self_weak.lock()) {
+              error_code ec;
+              self->socket->lowest_layer().cancel(ec);
+            }
           }
         });
       }
 
       void cancel_timeout() noexcept {
         if(timer) {
-          error_code ec;
-          timer->cancel(ec);
+          try {
+            timer->cancel();
+          }
+          catch(...) {
+          }
         }
       }
     };
@@ -155,7 +139,7 @@ namespace SimpleWeb {
 
     /// If you have your own asio::io_service, store its pointer here before calling request().
     /// When using asynchronous requests, running the io_service is up to the programmer.
-    std::shared_ptr<asio::io_service> io_service;
+    std::shared_ptr<io_context> io_service;
 
     /// Convenience function to perform synchronous request. The io_service is run within this function.
     /// If reusing the io_service for other tasks, use the asynchronous request functions instead.
@@ -178,7 +162,7 @@ namespace SimpleWeb {
         std::lock_guard<std::mutex> lock(concurrent_synchronous_requests_mutex);
         --concurrent_synchronous_requests;
         if(!concurrent_synchronous_requests)
-          io_service->reset();
+          restart(*io_service);
       }
 
       if(ec)
@@ -208,7 +192,7 @@ namespace SimpleWeb {
         std::lock_guard<std::mutex> lock(concurrent_synchronous_requests_mutex);
         --concurrent_synchronous_requests;
         if(!concurrent_synchronous_requests)
-          io_service->reset();
+          restart(*io_service);
       }
 
       if(ec)
@@ -362,7 +346,7 @@ namespace SimpleWeb {
     unsigned short port;
     unsigned short default_port;
 
-    std::unique_ptr<asio::ip::tcp::resolver::query> query;
+    std::unique_ptr<std::pair<std::string, std::string>> host_port;
 
     std::unordered_set<std::shared_ptr<Connection>> connections;
     std::mutex connections_mutex;
@@ -383,7 +367,7 @@ namespace SimpleWeb {
       std::lock_guard<std::mutex> lock(connections_mutex);
 
       if(!io_service) {
-        io_service = std::make_shared<asio::io_service>();
+        io_service = std::make_shared<io_context>();
         internal_io_service = true;
       }
 
@@ -400,12 +384,12 @@ namespace SimpleWeb {
       connection->attempt_reconnect = true;
       connection->in_use = true;
 
-      if(!query) {
+      if(!host_port) {
         if(config.proxy_server.empty())
-          query = std::unique_ptr<asio::ip::tcp::resolver::query>(new asio::ip::tcp::resolver::query(host, std::to_string(port)));
+          host_port = std::unique_ptr<std::pair<std::string, std::string>>(new std::pair<std::string, std::string>(host, std::to_string(port)));
         else {
           auto proxy_host_port = parse_host_port(config.proxy_server, 8080);
-          query = std::unique_ptr<asio::ip::tcp::resolver::query>(new asio::ip::tcp::resolver::query(proxy_host_port.first, std::to_string(proxy_host_port.second)));
+          host_port = std::unique_ptr<std::pair<std::string, std::string>>(new std::pair<std::string, std::string>(proxy_host_port.first, std::to_string(proxy_host_port.second)));
         }
       }
 
@@ -656,14 +640,14 @@ namespace SimpleWeb {
       if(!session->connection->socket->lowest_layer().is_open()) {
         auto resolver = std::make_shared<asio::ip::tcp::resolver>(*io_service);
         session->connection->set_timeout(config.timeout_connect);
-        resolver->async_resolve(*query, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator it) {
+        async_resolve(*resolver, *host_port, [this, session, resolver](const error_code &ec, resolver_results results) {
           session->connection->cancel_timeout();
           auto lock = session->connection->handler_runner->continue_lock();
           if(!lock)
             return;
           if(!ec) {
             session->connection->set_timeout(config.timeout_connect);
-            asio::async_connect(*session->connection->socket, it, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator /*it*/) {
+            asio::async_connect(*session->connection->socket, results, [this, session, resolver](const error_code &ec, async_connect_endpoint /*endpoint*/) {
               session->connection->cancel_timeout();
               auto lock = session->connection->handler_runner->continue_lock();
               if(!lock)
