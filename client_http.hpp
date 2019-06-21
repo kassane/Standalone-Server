@@ -210,7 +210,7 @@ namespace SimpleWeb {
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
       session->callback = [this, session_weak, request_callback](const error_code &ec) {
         if(auto session = session_weak.lock()) {
-          if(session->connection) {
+          {
             std::lock_guard<std::mutex> lock(this->connections_mutex);
             session->connection->in_use = false;
 
@@ -277,7 +277,7 @@ namespace SimpleWeb {
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
       session->callback = [this, session_weak, request_callback](const error_code &ec) {
         if(auto session = session_weak.lock()) {
-          if(session->connection) {
+          {
             std::lock_guard<std::mutex> lock(this->connections_mutex);
             session->connection->in_use = false;
 
@@ -500,12 +500,17 @@ namespace SimpleWeb {
           }
           else if(session->response->http_version < "1.1" || ((header_it = session->response->header.find("Session")) != session->response->header.end() && header_it->second == "close")) {
             session->connection->set_timeout();
-            asio::async_read(*session->connection->socket, session->response->streambuf, [session](const error_code &ec, std::size_t /*bytes_transferred*/) {
+            asio::async_read(*session->connection->socket, session->response->streambuf, [this, session](const error_code &ec, std::size_t /*bytes_transferred*/) {
               session->connection->cancel_timeout();
               auto lock = session->connection->handler_runner->continue_lock();
               if(!lock)
                 return;
-              session->connection = nullptr; // Disconnect
+
+              {
+                std::lock_guard<std::mutex> lock(this->connections_mutex);
+                this->connections.erase(session->connection);
+              }
+
               if(!ec) {
                 if(session->response->streambuf.size() == session->response->streambuf.max_size())
                   session->callback(make_error_code::make_error_code(errc::message_size));
