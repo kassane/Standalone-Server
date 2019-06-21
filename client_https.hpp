@@ -84,36 +84,36 @@ namespace SimpleWeb {
                         if(!lock)
                           return;
                         if((!ec || ec == asio::error::not_found) && response->streambuf.size() == response->streambuf.max_size()) {
-                          session->callback(session->connection, make_error_code::make_error_code(errc::message_size));
+                          session->callback(make_error_code::make_error_code(errc::message_size));
                           return;
                         }
                         if(!ec) {
                           if(!ResponseMessage::parse(response->content, response->http_version, response->status_code, response->header))
-                            session->callback(session->connection, make_error_code::make_error_code(errc::protocol_error));
+                            session->callback(make_error_code::make_error_code(errc::protocol_error));
                           else {
                             if(response->status_code.compare(0, 3, "200") != 0)
-                              session->callback(session->connection, make_error_code::make_error_code(errc::permission_denied));
+                              session->callback(make_error_code::make_error_code(errc::permission_denied));
                             else
                               this->handshake(session);
                           }
                         }
                         else
-                          session->callback(session->connection, ec);
+                          session->callback(ec);
                       });
                     }
                     else
-                      session->callback(session->connection, ec);
+                      session->callback(ec);
                   });
                 }
                 else
                   this->handshake(session);
               }
               else
-                session->callback(session->connection, ec);
+                session->callback(ec);
             });
           }
           else
-            session->callback(session->connection, ec);
+            session->callback(ec);
         });
       }
       else
@@ -132,7 +132,7 @@ namespace SimpleWeb {
         if(!ec)
           this->write(session);
         else
-          session->callback(session->connection, ec);
+          session->callback(ec);
       });
     }
   };
