@@ -524,6 +524,7 @@ namespace SimpleWeb {
               session->connection = create_connection();
               session->connection->attempt_reconnect = false;
               session->connection->in_use = true;
+              session->response = std::shared_ptr<Response>(new Response(session->response->streambuf.max_size()));
               connections.emplace(session->connection);
               lock.unlock();
               this->connect(session);
