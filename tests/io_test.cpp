@@ -1,6 +1,7 @@
 #include "assert.hpp"
 #include "client_http.hpp"
 #include "server_http.hpp"
+#include <future>
 
 using namespace std;
 
