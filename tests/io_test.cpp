@@ -3,6 +3,10 @@
 #include "server_http.hpp"
 #include <future>
 
+#ifndef USE_STANDALONE_ASIO
+namespace asio = boost::asio;
+#endif
+
 using namespace std;
 
 using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
@@ -359,7 +363,7 @@ int main() {
         }
         else if(call_num == 3) {
           ASSERT(response->content.string().empty());
-          ASSERT(ec == SimpleWeb::asio::error::eof);
+          ASSERT(ec == asio::error::eof);
         }
         ++call_num;
       });
