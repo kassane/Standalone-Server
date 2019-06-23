@@ -145,13 +145,13 @@ namespace SimpleWeb {
       }
 
       /// Convenience function for writing status line, potential header fields, and empty content
-      void write(StatusCode status_code = StatusCode::success_ok, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
+      void write(StatusCode status_code = StatusCode::success_ok, const CaseInsensitiveMultimap &header = {}) {
         *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
         write_header(header, 0);
       }
 
       /// Convenience function for writing status line, header fields, and content
-      void write(StatusCode status_code, string_view content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
+      void write(StatusCode status_code, string_view content, const CaseInsensitiveMultimap &header = {}) {
         *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
         write_header(header, content.size());
         if(!content.empty())
@@ -159,7 +159,7 @@ namespace SimpleWeb {
       }
 
       /// Convenience function for writing status line, header fields, and content
-      void write(StatusCode status_code, std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
+      void write(StatusCode status_code, std::istream &content, const CaseInsensitiveMultimap &header = {}) {
         *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
         content.seekg(0, std::ios::end);
         auto size = content.tellg();
@@ -170,12 +170,12 @@ namespace SimpleWeb {
       }
 
       /// Convenience function for writing success status line, header fields, and content
-      void write(string_view content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
+      void write(string_view content, const CaseInsensitiveMultimap &header = {}) {
         write(StatusCode::success_ok, content, header);
       }
 
       /// Convenience function for writing success status line, header fields, and content
-      void write(std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
+      void write(std::istream &content, const CaseInsensitiveMultimap &header = {}) {
         write(StatusCode::success_ok, content, header);
       }
 

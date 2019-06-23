@@ -88,9 +88,16 @@ namespace SimpleWeb {
 
       std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
       bool in_use = false;
+      bool event_stream = false;
       bool attempt_reconnect = true;
 
       std::unique_ptr<asio::steady_timer> timer;
+
+      void close() noexcept {
+        error_code ec;
+        socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
+        socket->lowest_layer().cancel(ec);
+      }
 
       void set_timeout(long seconds = 0) noexcept {
         if(seconds == 0)
@@ -103,10 +110,8 @@ namespace SimpleWeb {
         std::weak_ptr<Connection> self_weak(this->shared_from_this()); // To avoid keeping Connection instance alive longer than needed
         timer->async_wait([self_weak](const error_code &ec) {
           if(!ec) {
-            if(auto self = self_weak.lock()) {
-              error_code ec;
-              self->socket->lowest_layer().cancel(ec);
-            }
+            if(auto self = self_weak.lock())
+              self->close();
           }
         });
       }
@@ -144,8 +149,8 @@ namespace SimpleWeb {
     /// Convenience function to perform synchronous request. The io_service is run within this function.
     /// If reusing the io_service for other tasks, use the asynchronous request functions instead.
     /// Do not use concurrently with the asynchronous request functions.
-    std::shared_ptr<Response> request(const std::string &method, const std::string &path = std::string("/"),
-                                      string_view content = "", const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
+    /// When requesting Server-Sent Events: will throw on asio::error::eof, please use asynchronous request functions instead.
+    std::shared_ptr<Response> request(const std::string &method, const std::string &path = {"/"}, string_view content = {}, const CaseInsensitiveMultimap &header = {}) {
       std::shared_ptr<Response> response;
       error_code ec;
       request(method, path, content, header, [&response, &ec](std::shared_ptr<Response> response_, const error_code &ec_) {
@@ -174,8 +179,8 @@ namespace SimpleWeb {
     /// Convenience function to perform synchronous request. The io_service is run within this function.
     /// If reusing the io_service for other tasks, use the asynchronous request functions instead.
     /// Do not use concurrently with the asynchronous request functions.
-    std::shared_ptr<Response> request(const std::string &method, const std::string &path, std::istream &content,
-                                      const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
+    /// When requesting Server-Sent Events: will throw on asio::error::eof, please use asynchronous request functions instead.
+    std::shared_ptr<Response> request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header = {}) {
       std::shared_ptr<Response> response;
       error_code ec;
       request(method, path, content, header, [&response, &ec](std::shared_ptr<Response> response_, const error_code &ec_) {
@@ -203,6 +208,7 @@ namespace SimpleWeb {
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
     void request(const std::string &method, const std::string &path, string_view content, const CaseInsensitiveMultimap &header,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       auto session = std::make_shared<Session>(config.max_response_streambuf_size, get_connection(), create_request_header(method, path, header));
@@ -212,7 +218,8 @@ namespace SimpleWeb {
         if(auto session = session_weak.lock()) {
           {
             std::lock_guard<std::mutex> lock(this->connections_mutex);
-            session->connection->in_use = false;
+            if(!session->connection->event_stream)
+              session->connection->in_use = false;
 
             // Remove unused connections, but keep one open for HTTP persistent connection:
             std::size_t unused_connections = 0;
@@ -245,31 +252,38 @@ namespace SimpleWeb {
             write_stream << "Content-Length: " << content.size() << "\r\n";
         }
       }
-      write_stream << "\r\n"
-                   << content;
+      write_stream << "\r\n";
+      write_stream.write(content.data(), static_cast<ssize_t>(content.size()));
 
       connect(session);
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
     void request(const std::string &method, const std::string &path, string_view content,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback_));
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Do not use concurrently with the synchronous request functions.
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
     void request(const std::string &method, const std::string &path,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       request(method, path, std::string(), CaseInsensitiveMultimap(), std::move(request_callback_));
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Do not use concurrently with the synchronous request functions.
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
     void request(const std::string &method, std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       request(method, std::string("/"), std::string(), CaseInsensitiveMultimap(), std::move(request_callback_));
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Do not use concurrently with the synchronous request functions.
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
     void request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       auto session = std::make_shared<Session>(config.max_response_streambuf_size, get_connection(), create_request_header(method, path, header));
@@ -279,7 +293,8 @@ namespace SimpleWeb {
         if(auto session = session_weak.lock()) {
           {
             std::lock_guard<std::mutex> lock(this->connections_mutex);
-            session->connection->in_use = false;
+            if(!session->connection->event_stream)
+              session->connection->in_use = false;
 
             // Remove unused connections, but keep one open for HTTP persistent connection:
             std::size_t unused_connections = 0;
@@ -323,6 +338,8 @@ namespace SimpleWeb {
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Do not use concurrently with the synchronous request functions.
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
     void request(const std::string &method, const std::string &path, std::istream &content,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback_));
@@ -332,8 +349,7 @@ namespace SimpleWeb {
     void stop() noexcept {
       std::lock_guard<std::mutex> lock(connections_mutex);
       for(auto it = connections.begin(); it != connections.end();) {
-        error_code ec;
-        (*it)->socket->lowest_layer().cancel(ec);
+        (*it)->close();
         it = connections.erase(it);
       }
     }
@@ -457,10 +473,11 @@ namespace SimpleWeb {
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
-        if((!ec || ec == asio::error::not_found) && session->response->streambuf.size() == session->response->streambuf.max_size()) {
+        if(session->response->streambuf.size() == session->response->streambuf.max_size()) {
           session->callback(make_error_code::make_error_code(errc::message_size));
           return;
         }
+
         if(!ec) {
           session->connection->attempt_reconnect = true;
           std::size_t num_additional_bytes = session->response->streambuf.size() - bytes_transferred;
@@ -480,13 +497,13 @@ namespace SimpleWeb {
                 auto lock = session->connection->handler_runner->continue_lock();
                 if(!lock)
                   return;
-                if(!ec) {
-                  if(session->response->streambuf.size() == session->response->streambuf.max_size()) {
-                    session->callback(make_error_code::make_error_code(errc::message_size));
-                    return;
-                  }
-                  session->callback(ec);
+                if(session->response->streambuf.size() == session->response->streambuf.max_size()) {
+                  session->callback(make_error_code::make_error_code(errc::message_size));
+                  return;
                 }
+
+                if(!ec)
+                  session->callback(ec);
                 else
                   session->callback(ec);
               });
@@ -496,6 +513,14 @@ namespace SimpleWeb {
           }
           else if((header_it = session->response->header.find("Transfer-Encoding")) != session->response->header.end() && header_it->second == "chunked") {
             auto chunks_streambuf = std::make_shared<asio::streambuf>(this->config.max_response_streambuf_size);
+
+            // Copy leftover bytes
+            std::ostream ostream(chunks_streambuf.get());
+            auto size = session->response->streambuf.size();
+            std::unique_ptr<char[]> buffer(new char[size]);
+            session->response->content.read(buffer.get(), static_cast<std::streamsize>(size));
+            ostream.write(buffer.get(), static_cast<std::streamsize>(size));
+
             this->read_chunked_transfer_encoded(session, chunks_streambuf);
           }
           else if(session->response->http_version < "1.1" || ((header_it = session->response->header.find("Session")) != session->response->header.end() && header_it->second == "close")) {
@@ -505,21 +530,37 @@ namespace SimpleWeb {
               auto lock = session->connection->handler_runner->continue_lock();
               if(!lock)
                 return;
-
-              {
-                std::lock_guard<std::mutex> lock(this->connections_mutex);
-                this->connections.erase(session->connection);
+              if(session->response->streambuf.size() == session->response->streambuf.max_size()) {
+                session->callback(make_error_code::make_error_code(errc::message_size));
+                return;
               }
 
               if(!ec) {
-                if(session->response->streambuf.size() == session->response->streambuf.max_size())
-                  session->callback(make_error_code::make_error_code(errc::message_size));
-                else
-                  session->callback(ec);
+                {
+                  std::lock_guard<std::mutex> lock(this->connections_mutex);
+                  this->connections.erase(session->connection);
+                }
+                session->callback(ec);
               }
               else
                 session->callback(ec == asio::error::eof ? error_code() : ec);
             });
+          }
+          else if(((header_it = session->response->header.find("Content-Type")) != session->response->header.end() && header_it->second == "text/event-stream")) {
+            session->connection->event_stream = true;
+
+            auto events_streambuf = std::make_shared<asio::streambuf>(this->config.max_response_streambuf_size);
+
+            // Copy leftover bytes
+            std::ostream ostream(events_streambuf.get());
+            auto size = session->response->streambuf.size();
+            std::unique_ptr<char[]> buffer(new char[size]);
+            session->response->content.read(buffer.get(), static_cast<std::streamsize>(size));
+            ostream.write(buffer.get(), static_cast<std::streamsize>(size));
+
+            session->callback(ec); // Connection to a Server-Sent Events resource is opened
+
+            this->read_server_sent_event(session, events_streambuf);
           }
           else
             session->callback(ec);
@@ -533,7 +574,7 @@ namespace SimpleWeb {
               session->connection = create_connection();
               session->connection->attempt_reconnect = false;
               session->connection->in_use = true;
-              session->response = std::shared_ptr<Response>(new Response(session->response->streambuf.max_size()));
+              session->response = std::shared_ptr<Response>(new Response(this->config.max_response_streambuf_size));
               connections.emplace(session->connection);
               lock.unlock();
               this->connect(session);
@@ -551,18 +592,20 @@ namespace SimpleWeb {
 
     void read_chunked_transfer_encoded(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunks_streambuf) {
       session->connection->set_timeout();
-      asio::async_read_until(*session->connection->socket, session->response->streambuf, "\r\n", [this, session, chunks_streambuf](const error_code &ec, size_t bytes_transferred) {
+      asio::async_read_until(*session->connection->socket, *chunks_streambuf, "\r\n", [this, session, chunks_streambuf](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
-        if((!ec || ec == asio::error::not_found) && session->response->streambuf.size() == session->response->streambuf.max_size()) {
+        if(chunks_streambuf->size() == chunks_streambuf->max_size()) {
           session->callback(make_error_code::make_error_code(errc::message_size));
           return;
         }
+
         if(!ec) {
+          std::istream istream(chunks_streambuf.get());
           std::string line;
-          getline(session->response->content, line);
+          getline(istream, line);
           bytes_transferred -= line.size() + 1;
           line.pop_back();
           unsigned long length = 0;
@@ -574,22 +617,22 @@ namespace SimpleWeb {
             return;
           }
 
-          auto num_additional_bytes = session->response->streambuf.size() - bytes_transferred;
+          auto num_additional_bytes = chunks_streambuf->size() - bytes_transferred;
 
           if((2 + length) > num_additional_bytes) {
             session->connection->set_timeout();
-            asio::async_read(*session->connection->socket, session->response->streambuf, asio::transfer_exactly(2 + length - num_additional_bytes), [this, session, chunks_streambuf, length](const error_code &ec, size_t /*bytes_transferred*/) {
+            asio::async_read(*session->connection->socket, *chunks_streambuf, asio::transfer_exactly(2 + length - num_additional_bytes), [this, session, chunks_streambuf, length](const error_code &ec, size_t /*bytes_transferred*/) {
               session->connection->cancel_timeout();
               auto lock = session->connection->handler_runner->continue_lock();
               if(!lock)
                 return;
-              if(!ec) {
-                if(session->response->streambuf.size() == session->response->streambuf.max_size()) {
-                  session->callback(make_error_code::make_error_code(errc::message_size));
-                  return;
-                }
-                this->read_chunked_transfer_encoded_chunk(session, chunks_streambuf, length);
+              if(chunks_streambuf->size() == chunks_streambuf->max_size()) {
+                session->callback(make_error_code::make_error_code(errc::message_size));
+                return;
               }
+
+              if(!ec)
+                this->read_chunked_transfer_encoded_chunk(session, chunks_streambuf, length);
               else
                 session->callback(ec);
             });
@@ -603,31 +646,55 @@ namespace SimpleWeb {
     }
 
     void read_chunked_transfer_encoded_chunk(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunks_streambuf, unsigned long length) {
-      std::ostream tmp_stream(chunks_streambuf.get());
+      std::istream istream(chunks_streambuf.get());
       if(length > 0) {
+        std::ostream ostream(&session->response->streambuf);
         std::unique_ptr<char[]> buffer(new char[length]);
-        session->response->content.read(buffer.get(), static_cast<std::streamsize>(length));
-        tmp_stream.write(buffer.get(), static_cast<std::streamsize>(length));
-        if(chunks_streambuf->size() == chunks_streambuf->max_size()) {
+        istream.read(buffer.get(), static_cast<std::streamsize>(length));
+        ostream.write(buffer.get(), static_cast<std::streamsize>(length));
+        if(session->response->streambuf.size() == session->response->streambuf.max_size()) {
           session->callback(make_error_code::make_error_code(errc::message_size));
           return;
         }
       }
 
       // Remove "\r\n"
-      session->response->content.get();
-      session->response->content.get();
+      istream.get();
+      istream.get();
 
       if(length > 0)
         read_chunked_transfer_encoded(session, chunks_streambuf);
-      else {
-        if(chunks_streambuf->size() > 0) {
-          std::ostream ostream(&session->response->streambuf);
-          ostream << chunks_streambuf.get();
+      else
+        session->callback(error_code());
+    }
+
+    void read_server_sent_event(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &events_streambuf) {
+      session->connection->set_timeout();
+      asio::async_read_until(*session->connection->socket, *events_streambuf, "\n\n", [this, session, events_streambuf](const error_code &ec, std::size_t /*bytes_transferred*/) {
+        session->connection->cancel_timeout();
+        auto lock = session->connection->handler_runner->continue_lock();
+        if(!lock)
+          return;
+        if(events_streambuf->size() == events_streambuf->max_size()) {
+          session->callback(make_error_code::make_error_code(errc::message_size));
+          return;
         }
-        error_code ec;
-        session->callback(ec);
-      }
+
+        if(!ec) {
+          std::istream istream(events_streambuf.get());
+          std::ostream ostream(&session->response->streambuf);
+          std::string line;
+          while(std::getline(istream, line) && !line.empty()) {
+            ostream.write(line.data(), static_cast<ssize_t>(line.size()));
+            ostream.put('\n');
+          }
+
+          session->callback(ec);
+          read_server_sent_event(session, events_streambuf);
+        }
+        else
+          session->callback(ec);
+      });
     }
   };
 

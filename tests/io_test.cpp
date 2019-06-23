@@ -141,6 +141,40 @@ int main() {
     response->write("6\r\nSimple\r\n3\r\nWeb\r\nE\r\n in\r\n\r\nchunks.\r\n0\r\n\r\n", {{"Transfer-Encoding", "chunked"}});
   };
 
+  server.resource["^/event-stream$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
+    thread work_thread([response] {
+      response->close_connection_after_response = true; // Unspecified content length
+
+      // Send header
+      promise<bool> header_error;
+      response->write({{"Content-Type", "text/event-stream"}});
+      response->send([&header_error](const SimpleWeb::error_code &ec) {
+        header_error.set_value(static_cast<bool>(ec));
+      });
+      ASSERT(!header_error.get_future().get());
+
+      *response << "data: 1\n\n";
+      promise<bool> error;
+      response->send([&error](const SimpleWeb::error_code &ec) {
+        error.set_value(static_cast<bool>(ec));
+      });
+      ASSERT(!error.get_future().get());
+
+      // Write result
+      *response << "data: 2\n\n";
+    });
+    work_thread.detach();
+  };
+
+  server.resource["^/session-close$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
+    response->close_connection_after_response = true; // Unspecified content length
+    response->write("test", {{"Session", "close"}});
+  };
+  server.resource["^/session-close-without-correct-header$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
+    response->close_connection_after_response = true; // Unspecified content length
+    response->write("test");
+  };
+
   thread server_thread([&server]() {
     // Start server
     server.start();
@@ -237,6 +271,16 @@ int main() {
       auto r = client.request("POST", "/chunked", "6\r\nSimple\r\n3\r\nWeb\r\nE\r\n in\r\n\r\nchunks.\r\n0\r\n\r\n", {{"Transfer-Encoding", "chunked"}});
       ASSERT(r->content.string() == "SimpleWeb in\r\n\r\nchunks.");
     }
+
+    // Test reconnecting
+    for(int c = 0; c < 20; ++c) {
+      auto r = client.request("GET", "/session-close");
+      ASSERT(r->content.string() == "test");
+    }
+    for(int c = 0; c < 20; ++c) {
+      auto r = client.request("GET", "/session-close-without-correct-header");
+      ASSERT(r->content.string() == "test");
+    }
   }
   {
     HttpClient client("localhost:8080");
@@ -294,6 +338,37 @@ int main() {
     client.io_service->run();
     ASSERT(call);
 
+    // Test event-stream
+    {
+      vector<int> calls(4, 0);
+      std::size_t call_num = 0;
+      client.request("GET", "/event-stream", [&calls, &call_num](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+        calls.at(call_num) = 1;
+        if(call_num == 0) {
+          ASSERT(response->content.string().empty());
+          ASSERT(!ec);
+        }
+        else if(call_num == 1) {
+          ASSERT(response->content.string() == "data: 1\n");
+          ASSERT(!ec);
+        }
+        else if(call_num == 2) {
+          ASSERT(response->content.string() == "data: 2\n");
+          ASSERT(!ec);
+        }
+        else if(call_num == 3) {
+          ASSERT(response->content.string().empty());
+          ASSERT(ec == SimpleWeb::asio::error::eof);
+        }
+        ++call_num;
+      });
+      SimpleWeb::restart(*client.io_service);
+      client.io_service->run();
+      for(auto call : calls)
+        ASSERT(call);
+    }
+
+    // Test concurrent requests from same client
     {
       vector<int> calls(100, 0);
       vector<thread> threads;
@@ -318,6 +393,33 @@ int main() {
         ASSERT(call);
     }
 
+    // Test concurrent synchronous request calls from same client
+    {
+      HttpClient client("localhost:8080");
+      {
+        vector<int> calls(5, 0);
+        vector<thread> threads;
+        for(size_t c = 0; c < 5; ++c) {
+          threads.emplace_back([c, &client, &calls] {
+            try {
+              auto r = client.request("GET", "/match/123");
+              ASSERT(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
+              ASSERT(r->content.string() == "123");
+              calls[c] = 1;
+            }
+            catch(...) {
+              ASSERT(false);
+            }
+          });
+        }
+        for(auto &thread : threads)
+          thread.join();
+        ASSERT(client.connections.size() == 1);
+        for(auto call : calls)
+          ASSERT(call);
+      }
+    }
+
     // Test concurrent requests from different clients
     {
       vector<int> calls(10, 0);
@@ -335,33 +437,6 @@ int main() {
       }
       for(auto &thread : threads)
         thread.join();
-      for(auto call : calls)
-        ASSERT(call);
-    }
-  }
-
-  // Test concurrent synchronous request calls
-  {
-    HttpClient client("localhost:8080");
-    {
-      vector<int> calls(2, 0);
-      vector<thread> threads;
-      for(size_t c = 0; c < 2; ++c) {
-        threads.emplace_back([c, &client, &calls] {
-          try {
-            auto r = client.request("GET", "/match/123");
-            ASSERT(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
-            ASSERT(r->content.string() == "123");
-            calls[c] = 1;
-          }
-          catch(...) {
-            ASSERT(false);
-          }
-        });
-      }
-      for(auto &thread : threads)
-        thread.join();
-      ASSERT(client.connections.size() == 1);
       for(auto call : calls)
         ASSERT(call);
     }
