@@ -571,6 +571,14 @@ namespace SimpleWeb {
           }
           else if((header_it = session->request->header.find("Transfer-Encoding")) != session->request->header.end() && header_it->second == "chunked") {
             auto chunks_streambuf = std::make_shared<asio::streambuf>(this->config.max_request_streambuf_size);
+
+            // Copy leftover bytes
+            std::ostream ostream(chunks_streambuf.get());
+            auto size = session->request->streambuf.size();
+            std::unique_ptr<char[]> buffer(new char[size]);
+            session->request->content.read(buffer.get(), static_cast<std::streamsize>(size));
+            ostream.write(buffer.get(), static_cast<std::streamsize>(size));
+
             this->read_chunked_transfer_encoded(session, chunks_streambuf);
           }
           else
@@ -583,12 +591,12 @@ namespace SimpleWeb {
 
     void read_chunked_transfer_encoded(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunks_streambuf) {
       session->connection->set_timeout(config.timeout_content);
-      asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n", [this, session, chunks_streambuf](const error_code &ec, size_t bytes_transferred) {
+      asio::async_read_until(*session->connection->socket, *chunks_streambuf, "\r\n", [this, session, chunks_streambuf](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
-        if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
+        if(chunks_streambuf->size() == chunks_streambuf->max_size()) {
           auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
           response->write(StatusCode::client_error_payload_too_large);
           if(this->on_error)
@@ -597,8 +605,9 @@ namespace SimpleWeb {
         }
 
         if(!ec) {
+          std::istream istream(chunks_streambuf.get());
           std::string line;
-          getline(session->request->content, line);
+          getline(istream, line);
           bytes_transferred -= line.size() + 1;
           line.pop_back();
           unsigned long length = 0;
@@ -611,16 +620,16 @@ namespace SimpleWeb {
             return;
           }
 
-          auto num_additional_bytes = session->request->streambuf.size() - bytes_transferred;
+          auto num_additional_bytes = chunks_streambuf->size() - bytes_transferred;
 
           if((2 + length) > num_additional_bytes) {
             session->connection->set_timeout(config.timeout_content);
-            asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(2 + length - num_additional_bytes), [this, session, chunks_streambuf, length](const error_code &ec, size_t /*bytes_transferred*/) {
+            asio::async_read(*session->connection->socket, *chunks_streambuf, asio::transfer_exactly(2 + length - num_additional_bytes), [this, session, chunks_streambuf, length](const error_code &ec, size_t /*bytes_transferred*/) {
               session->connection->cancel_timeout();
               auto lock = session->connection->handler_runner->continue_lock();
               if(!lock)
                 return;
-              if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
+              if(chunks_streambuf->size() == chunks_streambuf->max_size()) {
                 auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
                 response->write(StatusCode::client_error_payload_too_large);
                 if(this->on_error)
@@ -643,12 +652,13 @@ namespace SimpleWeb {
     }
 
     void read_chunked_transfer_encoded_chunk(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunks_streambuf, unsigned long length) {
-      std::ostream tmp_stream(chunks_streambuf.get());
+      std::istream istream(chunks_streambuf.get());
       if(length > 0) {
+        std::ostream ostream(&session->request->streambuf);
         std::unique_ptr<char[]> buffer(new char[length]);
-        session->request->content.read(buffer.get(), static_cast<std::streamsize>(length));
-        tmp_stream.write(buffer.get(), static_cast<std::streamsize>(length));
-        if(chunks_streambuf->size() == chunks_streambuf->max_size()) {
+        istream.read(buffer.get(), static_cast<std::streamsize>(length));
+        ostream.write(buffer.get(), static_cast<std::streamsize>(length));
+        if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
           auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
           response->write(StatusCode::client_error_payload_too_large);
           if(this->on_error)
@@ -658,18 +668,13 @@ namespace SimpleWeb {
       }
 
       // Remove "\r\n"
-      session->request->content.get();
-      session->request->content.get();
+      istream.get();
+      istream.get();
 
       if(length > 0)
         read_chunked_transfer_encoded(session, chunks_streambuf);
-      else {
-        if(chunks_streambuf->size() > 0) {
-          std::ostream ostream(&session->request->streambuf);
-          ostream << chunks_streambuf.get();
-        }
+      else
         this->find_resource(session);
-      }
     }
 
     void find_resource(const std::shared_ptr<Session> &session) {
