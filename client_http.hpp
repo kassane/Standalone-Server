@@ -149,7 +149,7 @@ namespace SimpleWeb {
     /// Convenience function to perform synchronous request. The io_service is run within this function.
     /// If reusing the io_service for other tasks, use the asynchronous request functions instead.
     /// Do not use concurrently with the asynchronous request functions.
-    /// When requesting Server-Sent Events: will throw on asio::error::eof, please use asynchronous request functions instead.
+    /// When requesting Server-Sent Events: will throw on error::eof, please use asynchronous request functions instead.
     std::shared_ptr<Response> request(const std::string &method, const std::string &path = {"/"}, string_view content = {}, const CaseInsensitiveMultimap &header = {}) {
       std::shared_ptr<Response> response;
       error_code ec;
@@ -179,7 +179,7 @@ namespace SimpleWeb {
     /// Convenience function to perform synchronous request. The io_service is run within this function.
     /// If reusing the io_service for other tasks, use the asynchronous request functions instead.
     /// Do not use concurrently with the asynchronous request functions.
-    /// When requesting Server-Sent Events: will throw on asio::error::eof, please use asynchronous request functions instead.
+    /// When requesting Server-Sent Events: will throw on error::eof, please use asynchronous request functions instead.
     std::shared_ptr<Response> request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header = {}) {
       std::shared_ptr<Response> response;
       error_code ec;
@@ -208,7 +208,7 @@ namespace SimpleWeb {
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
-    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, const std::string &path, string_view content, const CaseInsensitiveMultimap &header,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       auto session = std::make_shared<Session>(config.max_response_streambuf_size, get_connection(), create_request_header(method, path, header));
@@ -260,7 +260,7 @@ namespace SimpleWeb {
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
-    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, const std::string &path, string_view content,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback_));
@@ -268,7 +268,7 @@ namespace SimpleWeb {
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
-    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, const std::string &path,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       request(method, path, std::string(), CaseInsensitiveMultimap(), std::move(request_callback_));
@@ -276,14 +276,14 @@ namespace SimpleWeb {
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
-    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       request(method, std::string("/"), std::string(), CaseInsensitiveMultimap(), std::move(request_callback_));
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
-    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       auto session = std::make_shared<Session>(config.max_response_streambuf_size, get_connection(), create_request_header(method, path, header));
@@ -339,7 +339,7 @@ namespace SimpleWeb {
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
-    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = asio::error::eof on last call
+    /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, const std::string &path, std::istream &content,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback_));
@@ -543,7 +543,7 @@ namespace SimpleWeb {
                 session->callback(ec);
               }
               else
-                session->callback(ec == asio::error::eof ? error_code() : ec);
+                session->callback(ec == error::eof ? error_code() : ec);
             });
           }
           else if(((header_it = session->response->header.find("Content-Type")) != session->response->header.end() && header_it->second == "text/event-stream")) {
@@ -566,7 +566,7 @@ namespace SimpleWeb {
             session->callback(ec);
         }
         else {
-          if(session->connection->attempt_reconnect && ec != asio::error::operation_aborted) {
+          if(session->connection->attempt_reconnect && ec != error::operation_aborted) {
             std::unique_lock<std::mutex> lock(connections_mutex);
             auto it = connections.find(session->connection);
             if(it != connections.end()) {

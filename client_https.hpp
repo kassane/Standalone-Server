@@ -83,10 +83,11 @@ namespace SimpleWeb {
                         auto lock = session->connection->handler_runner->continue_lock();
                         if(!lock)
                           return;
-                        if((!ec || ec == asio::error::not_found) && response->streambuf.size() == response->streambuf.max_size()) {
+                        if(response->streambuf.size() == response->streambuf.max_size()) {
                           session->callback(make_error_code::make_error_code(errc::message_size));
                           return;
                         }
+
                         if(!ec) {
                           if(!ResponseMessage::parse(response->content, response->http_version, response->status_code, response->header))
                             session->callback(make_error_code::make_error_code(errc::protocol_error));

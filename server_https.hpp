@@ -53,7 +53,7 @@ namespace SimpleWeb {
         if(!lock)
           return;
 
-        if(ec != asio::error::operation_aborted)
+        if(ec != error::operation_aborted)
           this->accept();
 
         auto session = std::make_shared<Session>(config.max_request_streambuf_size, connection);
