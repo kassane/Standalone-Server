@@ -176,6 +176,14 @@ int main() {
     response->write("test");
   };
 
+  server.resource["^/non-standard-line-endings1$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
+    *response << "HTTP/1.1 200 OK\r\nname: value\n\n";
+  };
+
+  server.resource["^/non-standard-line-endings2$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
+    *response << "HTTP/1.1 200 OK\nname: value\n\n";
+  };
+
   thread server_thread([&server]() {
     // Start server
     server.start();
@@ -281,6 +289,26 @@ int main() {
     for(int c = 0; c < 20; ++c) {
       auto r = client.request("GET", "/session-close-without-correct-header");
       ASSERT(r->content.string() == "test");
+    }
+
+    // Test non-standard line endings
+    {
+      auto r = client.request("GET", "/non-standard-line-endings1");
+      ASSERT(r->http_version == "1.1");
+      ASSERT(r->status_code == "200 OK");
+      ASSERT(r->header.size() == 1);
+      ASSERT(r->header.begin()->first == "name");
+      ASSERT(r->header.begin()->second == "value");
+      ASSERT(r->content.string().empty());
+    }
+    {
+      auto r = client.request("GET", "/non-standard-line-endings2");
+      ASSERT(r->http_version == "1.1");
+      ASSERT(r->status_code == "200 OK");
+      ASSERT(r->header.size() == 1);
+      ASSERT(r->header.begin()->first == "name");
+      ASSERT(r->header.begin()->second == "value");
+      ASSERT(r->content.string().empty());
     }
   }
   {

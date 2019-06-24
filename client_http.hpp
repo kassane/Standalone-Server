@@ -10,6 +10,53 @@
 #include <vector>
 
 namespace SimpleWeb {
+  class HeaderEndMatch {
+    int crlfcrlf = 0;
+    int lflf = 0;
+
+  public:
+    std::pair<asio::buffers_iterator<asio::const_buffers_1>, bool> operator()(asio::buffers_iterator<asio::const_buffers_1> begin, asio::buffers_iterator<asio::const_buffers_1> end) {
+      auto it = begin;
+      for(; it != end; ++it) {
+        if(*it == '\n') {
+          if(crlfcrlf == 1)
+            ++crlfcrlf;
+          else if(crlfcrlf == 2)
+            crlfcrlf = 0;
+          else if(crlfcrlf == 3)
+            return {++it, true};
+          if(lflf == 0)
+            ++lflf;
+          else if(lflf == 1)
+            return {++it, true};
+        }
+        else if(*it == '\r') {
+          if(crlfcrlf == 0)
+            ++crlfcrlf;
+          else if(crlfcrlf == 2)
+            ++crlfcrlf;
+          lflf = 0;
+        }
+        else {
+          crlfcrlf = 0;
+          lflf = 0;
+        }
+      }
+      return {it, false};
+    }
+  };
+} // namespace SimpleWeb
+#ifndef USE_STANDALONE_ASIO
+namespace boost {
+#endif
+  namespace asio {
+    template <> struct is_match_condition<SimpleWeb::HeaderEndMatch> : public std::true_type {};
+  } // namespace asio
+#ifndef USE_STANDALONE_ASIO
+} // namespace boost
+#endif
+
+namespace SimpleWeb {
   template <class socket_type>
   class Client;
 
@@ -468,7 +515,7 @@ namespace SimpleWeb {
 
     void read(const std::shared_ptr<Session> &session) {
       session->connection->set_timeout();
-      asio::async_read_until(*session->connection->socket, session->response->streambuf, "\r\n\r\n", [this, session](const error_code &ec, std::size_t bytes_transferred) {
+      asio::async_read_until(*session->connection->socket, session->response->streambuf, HeaderEndMatch(), [this, session](const error_code &ec, std::size_t bytes_transferred) {
         session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
