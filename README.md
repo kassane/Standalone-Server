@@ -10,11 +10,13 @@ See https://gitlab.com/eidheim/Simple-WebSocket-Server for an easy way to make W
 * Asynchronous request handling
 * Thread pool if needed
 * Platform independent
-* HTTPS support
-* HTTP persistent connection (for HTTP/1.1)
-* Client supports chunked transfer encoding
-* Timeouts, if any of Server::timeout_request and Server::timeout_content are >0 (default: Server::timeout_request=5 seconds, and Server::timeout_content=300 seconds)
-* Simple way to add REST resources using regex for path, and anonymous functions
+* HTTP/1.1 supported, including persistent connections
+* HTTPS supported
+* Chunked transfer encoding and server-sent events
+* Can set timeouts for request/response and content
+* Can set max request/response size
+* Sending outgoing messages is thread safe
+* Client creates necessary connections and perform reconnects when needed
 
 ### Usage
 
