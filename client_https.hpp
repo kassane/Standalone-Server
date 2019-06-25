@@ -1,5 +1,5 @@
-#ifndef CLIENT_HTTPS_HPP
-#define CLIENT_HTTPS_HPP
+#ifndef SIMPLE_WEB_CLIENT_HTTPS_HPP
+#define SIMPLE_WEB_CLIENT_HTTPS_HPP
 
 #include "client_http.hpp"
 
@@ -139,4 +139,4 @@ namespace SimpleWeb {
   };
 } // namespace SimpleWeb
 
-#endif /* CLIENT_HTTPS_HPP */
+#endif /* SIMPLE_WEB_CLIENT_HTTPS_HPP */

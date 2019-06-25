@@ -1,5 +1,5 @@
-#ifndef SERVER_HTTPS_HPP
-#define SERVER_HTTPS_HPP
+#ifndef SIMPLE_WEB_SERVER_HTTPS_HPP
+#define SIMPLE_WEB_SERVER_HTTPS_HPP
 
 #include "server_http.hpp"
 
@@ -82,4 +82,4 @@ namespace SimpleWeb {
   };
 } // namespace SimpleWeb
 
-#endif /* SERVER_HTTPS_HPP */
+#endif /* SIMPLE_WEB_SERVER_HTTPS_HPP */

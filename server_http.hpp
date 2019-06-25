@@ -1,5 +1,5 @@
-#ifndef SERVER_HTTP_HPP
-#define SERVER_HTTP_HPP
+#ifndef SIMPLE_WEB_SERVER_HTTP_HPP
+#define SIMPLE_WEB_SERVER_HTTP_HPP
 
 #include "asio_compatibility.hpp"
 #include "mutex.hpp"
@@ -793,4 +793,4 @@ namespace SimpleWeb {
   };
 } // namespace SimpleWeb
 
-#endif /* SERVER_HTTP_HPP */
+#endif /* SIMPLE_WEB_SERVER_HTTP_HPP */
