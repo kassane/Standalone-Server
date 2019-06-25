@@ -35,6 +35,8 @@ namespace SimpleWeb {
             ++crlfcrlf;
           else if(crlfcrlf == 2)
             ++crlfcrlf;
+          else
+            crlfcrlf = 0;
           lflf = 0;
         }
         else {
