@@ -2,9 +2,9 @@
 #define CLIENT_HTTP_HPP
 
 #include "asio_compatibility.hpp"
+#include "mutex.hpp"
 #include "utility.hpp"
 #include <limits>
-#include <mutex>
 #include <random>
 #include <unordered_set>
 #include <vector>
@@ -208,12 +208,12 @@ namespace SimpleWeb {
       });
 
       {
-        std::lock_guard<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        LockGuard lock(concurrent_synchronous_requests_mutex);
         ++concurrent_synchronous_requests;
       }
       io_service->run();
       {
-        std::lock_guard<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        LockGuard lock(concurrent_synchronous_requests_mutex);
         --concurrent_synchronous_requests;
         if(!concurrent_synchronous_requests)
           restart(*io_service);
@@ -238,12 +238,12 @@ namespace SimpleWeb {
       });
 
       {
-        std::lock_guard<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        LockGuard lock(concurrent_synchronous_requests_mutex);
         ++concurrent_synchronous_requests;
       }
       io_service->run();
       {
-        std::lock_guard<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        LockGuard lock(concurrent_synchronous_requests_mutex);
         --concurrent_synchronous_requests;
         if(!concurrent_synchronous_requests)
           restart(*io_service);
@@ -266,7 +266,7 @@ namespace SimpleWeb {
       session->callback = [this, session_weak, request_callback](const error_code &ec) {
         if(auto session = session_weak.lock()) {
           {
-            std::lock_guard<std::mutex> lock(this->connections_mutex);
+            LockGuard lock(this->connections_mutex);
             if(!session->connection->event_stream)
               session->connection->in_use = false;
 
@@ -341,7 +341,7 @@ namespace SimpleWeb {
       session->callback = [this, session_weak, request_callback](const error_code &ec) {
         if(auto session = session_weak.lock()) {
           {
-            std::lock_guard<std::mutex> lock(this->connections_mutex);
+            LockGuard lock(this->connections_mutex);
             if(!session->connection->event_stream)
               session->connection->in_use = false;
 
@@ -396,7 +396,7 @@ namespace SimpleWeb {
 
     /// Close connections
     void stop() noexcept {
-      std::lock_guard<std::mutex> lock(connections_mutex);
+      LockGuard lock(connections_mutex);
       for(auto it = connections.begin(); it != connections.end();) {
         (*it)->close();
         it = connections.erase(it);
@@ -417,13 +417,13 @@ namespace SimpleWeb {
 
     std::unique_ptr<std::pair<std::string, std::string>> host_port;
 
-    std::unordered_set<std::shared_ptr<Connection>> connections;
-    std::mutex connections_mutex;
+    Mutex connections_mutex;
+    std::unordered_set<std::shared_ptr<Connection>> connections GUARDED_BY(connections_mutex);
 
     std::shared_ptr<ScopeRunner> handler_runner;
 
-    std::size_t concurrent_synchronous_requests = 0;
-    std::mutex concurrent_synchronous_requests_mutex;
+    Mutex concurrent_synchronous_requests_mutex;
+    std::size_t concurrent_synchronous_requests GUARDED_BY(concurrent_synchronous_requests_mutex) = 0;
 
     ClientBase(const std::string &host_port, unsigned short default_port) noexcept : default_port(default_port), handler_runner(new ScopeRunner()) {
       auto parsed_host_port = parse_host_port(host_port, default_port);
@@ -433,7 +433,7 @@ namespace SimpleWeb {
 
     std::shared_ptr<Connection> get_connection() noexcept {
       std::shared_ptr<Connection> connection;
-      std::lock_guard<std::mutex> lock(connections_mutex);
+      LockGuard lock(connections_mutex);
 
       if(!io_service) {
         io_service = std::make_shared<io_context>();
@@ -586,7 +586,7 @@ namespace SimpleWeb {
 
               if(!ec) {
                 {
-                  std::lock_guard<std::mutex> lock(this->connections_mutex);
+                  LockGuard lock(this->connections_mutex);
                   this->connections.erase(session->connection);
                 }
                 session->callback(ec);
@@ -616,7 +616,7 @@ namespace SimpleWeb {
         }
         else {
           if(session->connection->attempt_reconnect && ec != error::operation_aborted) {
-            std::unique_lock<std::mutex> lock(connections_mutex);
+            LockGuard lock(connections_mutex);
             auto it = connections.find(session->connection);
             if(it != connections.end()) {
               connections.erase(it);

@@ -1,5 +1,8 @@
 if(NOT MSVC)
     add_compile_options(-fno-access-control)
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-Wno-thread-safety)
+    endif()
     
     add_executable(io_test io_test.cpp)
     target_link_libraries(io_test simple-web-server)
