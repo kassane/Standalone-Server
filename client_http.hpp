@@ -302,7 +302,7 @@ namespace SimpleWeb {
         }
       }
       write_stream << "\r\n";
-      write_stream.write(content.data(), static_cast<ssize_t>(content.size()));
+      write_stream.write(content.data(), static_cast<std::streamsize>(content.size()));
 
       connect(session);
     }
@@ -734,7 +734,7 @@ namespace SimpleWeb {
           std::ostream ostream(&session->response->streambuf);
           std::string line;
           while(std::getline(istream, line) && !line.empty()) {
-            ostream.write(line.data(), static_cast<ssize_t>(line.size()));
+            ostream.write(line.data(), static_cast<std::streamsize>(line.size()));
             ostream.put('\n');
           }
 
