@@ -4,6 +4,7 @@ project (Simple-Web-Server)
 
 option(USE_STANDALONE_ASIO "set ON to use standalone Asio instead of Boost.Asio" OFF)
 option(BUILD_TESTING "set ON to build library tests" OFF)
+option(USE_OPENSSL "set OFF to build without OpenSSL" ON)
 
 if(NOT MSVC)
     add_compile_options(-std=c++11 -Wall -Wextra -Wsign-conversion)
@@ -49,7 +50,9 @@ endif()
 if(APPLE)
     set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
 endif()
-find_package(OpenSSL)
+if(USE_OPENSSL)
+    find_package(OpenSSL)
+endif()
 if(OPENSSL_FOUND)
     target_compile_definitions(simple-web-server INTERFACE HAVE_OPENSSL)
     target_link_libraries(simple-web-server INTERFACE ${OPENSSL_LIBRARIES})
@@ -70,9 +73,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
         target_link_libraries(https_examples ${Boost_LIBRARIES})
         target_include_directories(https_examples PRIVATE ${Boost_INCLUDE_DIR})
     endif()
-    
+
     set(BUILD_TESTING ON)
-    
+
     install(FILES asio_compatibility.hpp server_http.hpp client_http.hpp server_https.hpp client_https.hpp crypto.hpp utility.hpp status_code.hpp mutex.hpp DESTINATION include/simple-web-server)
 endif()
 
