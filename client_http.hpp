@@ -719,7 +719,7 @@ namespace SimpleWeb {
 
     void read_server_sent_event(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &events_streambuf) {
       session->connection->set_timeout();
-      asio::async_read_until(*session->connection->socket, *events_streambuf, "\n\n", [this, session, events_streambuf](const error_code &ec, std::size_t /*bytes_transferred*/) {
+      asio::async_read_until(*session->connection->socket, *events_streambuf, HeaderEndMatch(), [this, session, events_streambuf](const error_code &ec, std::size_t /*bytes_transferred*/) {
         session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
@@ -733,8 +733,8 @@ namespace SimpleWeb {
           std::istream istream(events_streambuf.get());
           std::ostream ostream(&session->response->streambuf);
           std::string line;
-          while(std::getline(istream, line) && !line.empty()) {
-            ostream.write(line.data(), static_cast<std::streamsize>(line.size()));
+          while(std::getline(istream, line) && !line.empty() && !(line.back() == '\r' && line.size() == 1)) {
+            ostream.write(line.data(), static_cast<std::streamsize>(line.size() - (line.back() == '\r' ? 1 : 0)));
             ostream.put('\n');
           }
 

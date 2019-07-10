@@ -142,7 +142,7 @@ int main() {
     response->write("6\r\nSimple\r\n3\r\nWeb\r\nE\r\n in\r\n\r\nchunks.\r\n0\r\n\r\n", {{"Transfer-Encoding", "chunked"}});
   };
 
-  server.resource["^/event-stream$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
+  server.resource["^/event-stream1$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
     thread work_thread([response] {
       response->close_connection_after_response = true; // Unspecified content length
 
@@ -163,6 +163,31 @@ int main() {
 
       // Write result
       *response << "data: 2\n\n";
+    });
+    work_thread.detach();
+  };
+
+  server.resource["^/event-stream2$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
+    thread work_thread([response] {
+      response->close_connection_after_response = true; // Unspecified content length
+
+      // Send header
+      promise<bool> header_error;
+      response->write({{"Content-Type", "text/event-stream"}});
+      response->send([&header_error](const SimpleWeb::error_code &ec) {
+        header_error.set_value(static_cast<bool>(ec));
+      });
+      ASSERT(!header_error.get_future().get());
+
+      *response << "data: 1\r\n\r\n";
+      promise<bool> error;
+      response->send([&error](const SimpleWeb::error_code &ec) {
+        error.set_value(static_cast<bool>(ec));
+      });
+      ASSERT(!error.get_future().get());
+
+      // Write result
+      *response << "data: 2\r\n\r\n";
     });
     work_thread.detach();
   };
@@ -371,7 +396,35 @@ int main() {
     {
       vector<int> calls(4, 0);
       std::size_t call_num = 0;
-      client.request("GET", "/event-stream", [&calls, &call_num](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+      client.request("GET", "/event-stream1", [&calls, &call_num](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+        calls.at(call_num) = 1;
+        if(call_num == 0) {
+          ASSERT(response->content.string().empty());
+          ASSERT(!ec);
+        }
+        else if(call_num == 1) {
+          ASSERT(response->content.string() == "data: 1\n");
+          ASSERT(!ec);
+        }
+        else if(call_num == 2) {
+          ASSERT(response->content.string() == "data: 2\n");
+          ASSERT(!ec);
+        }
+        else if(call_num == 3) {
+          ASSERT(response->content.string().empty());
+          ASSERT(ec == SimpleWeb::error::eof);
+        }
+        ++call_num;
+      });
+      SimpleWeb::restart(*client.io_service);
+      client.io_service->run();
+      for(auto call : calls)
+        ASSERT(call);
+    }
+    {
+      vector<int> calls(4, 0);
+      std::size_t call_num = 0;
+      client.request("GET", "/event-stream2", [&calls, &call_num](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
         calls.at(call_num) = 1;
         if(call_num == 0) {
           ASSERT(response->content.string().empty());
