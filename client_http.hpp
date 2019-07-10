@@ -199,7 +199,7 @@ namespace SimpleWeb {
     /// If reusing the io_service for other tasks, use the asynchronous request functions instead.
     /// Do not use concurrently with the asynchronous request functions.
     /// When requesting Server-Sent Events: will throw on error::eof, please use asynchronous request functions instead.
-    std::shared_ptr<Response> request(const std::string &method, const std::string &path = {"/"}, string_view content = {}, const CaseInsensitiveMultimap &header = {}) {
+    std::shared_ptr<Response> request(const std::string &method, const std::string &path = {"/"}, string_view content = {}, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
       std::shared_ptr<Response> response;
       error_code ec;
       request(method, path, content, header, [&response, &ec](std::shared_ptr<Response> response_, const error_code &ec_) {
@@ -229,7 +229,7 @@ namespace SimpleWeb {
     /// If reusing the io_service for other tasks, use the asynchronous request functions instead.
     /// Do not use concurrently with the asynchronous request functions.
     /// When requesting Server-Sent Events: will throw on error::eof, please use asynchronous request functions instead.
-    std::shared_ptr<Response> request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header = {}) {
+    std::shared_ptr<Response> request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
       std::shared_ptr<Response> response;
       error_code ec;
       request(method, path, content, header, [&response, &ec](std::shared_ptr<Response> response_, const error_code &ec_) {
