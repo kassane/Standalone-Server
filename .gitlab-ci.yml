@@ -1,5 +1,3 @@
-image: eidheim/testing
-
 before_script:
   - mkdir build && cd build
   - export CXXFLAGS=-Werror
