@@ -49,7 +49,7 @@ Direct your favorite browser to for instance http://localhost:8080/
 
 #### HTTPS
 
-Before running the server, an RSA private key (server.key) and an SSL certificate (server.crt) must be created. Follow, for instance, the instructions given here (for a self-signed certificate): http://www.akadia.com/services/ssh_test_certificate.html
+Before running the server, an RSA private key (server.key) and an SSL certificate (server.crt) must be created.
 
 Run the server and client examples: `./build/https_examples`
 
