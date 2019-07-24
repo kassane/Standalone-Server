@@ -23,8 +23,10 @@ bibliography: paper.bib
 
 The programming language C++ is commonly used for resource intensive tasks.
 Simple-Web-Server is a library that can be utilized in C++ applications to
-implement web-resources or perform HTTP(S) requests in a simple manner across OS
-platforms compared to using a networking library directly. 
+implement web-resources or perform HTTP or HTTPS requests in a simple manner
+across OS platforms compared to using a networking library directly. Thus,
+Simple-Web-Server can be helpful for any research software written in C++ that
+needs to communicate with remote endpoints through HTTP or HTTPS.
 
 The main features, apart from speed and ease of use, are flexibility and safety.
 The asynchronous I/O library Asio C++ Library [@asio] is used to implement
@@ -57,9 +59,9 @@ Technology, and used in many external projects, for instance in the
 multi-purpose emulation framework MAME [@mame]. The library was also used in the
 senior thesis by Chung and Callin [@chung].
 
-There are several alternatives to Simple-Web-Server. Most notably
-Boost.Beast [@beast], but this library is made for library authors and is thus
-harder to utilize in a C++ application. Additionally, Boost.Beast does not support
+There are several alternatives to Simple-Web-Server. Most notably Boost.Beast
+[@beast], but this library is made for library authors and is thus harder to
+utilize in a C++ application. Additionally, Boost.Beast does not support
 standalone Asio. Another alternative is H2O [@h20] that supports several event
 handling systems, however, Asio is not yet supported. Both Boost.Beast, and to a
 lesser degree H2O, supports the WebSocket protocol [@websocket_protocol]. In the
