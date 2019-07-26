@@ -55,3 +55,8 @@ Run the server and client examples: `./build/https_examples`
 
 Direct your favorite browser to for instance https://localhost:8080/
 
+### Contributing
+
+Contributions are welcome, either by creating an issue or a merge request.
+However, before you create a new issue or merge request, please search for previous similar issues or requests.
+A response will normally be given within a few days.
