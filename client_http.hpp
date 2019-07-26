@@ -15,6 +15,7 @@ namespace SimpleWeb {
     int lflf = 0;
 
   public:
+    /// Match condition for asio::read_until to match both standard and non-standard HTTP header endings.
     std::pair<asio::buffers_iterator<asio::const_buffers_1>, bool> operator()(asio::buffers_iterator<asio::const_buffers_1> begin, asio::buffers_iterator<asio::const_buffers_1> end) {
       auto it = begin;
       for(; it != end; ++it) {
@@ -72,7 +73,7 @@ namespace SimpleWeb {
       std::size_t size() noexcept {
         return streambuf.size();
       }
-      /// Convenience function to return std::string. The stream buffer is consumed.
+      /// Convenience function to return content as a string. The stream buffer is consumed.
       std::string string() noexcept {
         try {
           std::string str;
@@ -188,15 +189,14 @@ namespace SimpleWeb {
     };
 
   public:
-    /// Set before calling request
+    /// Set before calling a request function.
     Config config;
 
-    /// If you have your own asio::io_service, store its pointer here before calling request().
-    /// When using asynchronous requests, running the io_service is up to the programmer.
+    /// If you want to reuse an already created asio::io_service, store its pointer here before calling a request function.
     std::shared_ptr<io_context> io_service;
 
     /// Convenience function to perform synchronous request. The io_service is run within this function.
-    /// If reusing the io_service for other tasks, use the asynchronous request functions instead.
+    /// If you reuse the io_service for other tasks, use the asynchronous request functions instead.
     /// Do not use concurrently with the asynchronous request functions.
     /// When requesting Server-Sent Events: will throw on error::eof, please use asynchronous request functions instead.
     std::shared_ptr<Response> request(const std::string &method, const std::string &path = {"/"}, string_view content = {}, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
@@ -226,7 +226,7 @@ namespace SimpleWeb {
     }
 
     /// Convenience function to perform synchronous request. The io_service is run within this function.
-    /// If reusing the io_service for other tasks, use the asynchronous request functions instead.
+    /// If you reuse the io_service for other tasks, use the asynchronous request functions instead.
     /// Do not use concurrently with the asynchronous request functions.
     /// When requesting Server-Sent Events: will throw on error::eof, please use asynchronous request functions instead.
     std::shared_ptr<Response> request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
@@ -255,7 +255,7 @@ namespace SimpleWeb {
       return response;
     }
 
-    /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Asynchronous request where running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
     /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, const std::string &path, string_view content, const CaseInsensitiveMultimap &header,
@@ -307,7 +307,7 @@ namespace SimpleWeb {
       connect(session);
     }
 
-    /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Asynchronous request where running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
     /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, const std::string &path, string_view content,
@@ -315,7 +315,7 @@ namespace SimpleWeb {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback_));
     }
 
-    /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Asynchronous request where running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
     /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, const std::string &path,
@@ -323,14 +323,14 @@ namespace SimpleWeb {
       request(method, path, std::string(), CaseInsensitiveMultimap(), std::move(request_callback_));
     }
 
-    /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Asynchronous request where running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
     /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       request(method, std::string("/"), std::string(), CaseInsensitiveMultimap(), std::move(request_callback_));
     }
 
-    /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Asynchronous request where running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
     /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header,
@@ -386,7 +386,7 @@ namespace SimpleWeb {
       connect(session);
     }
 
-    /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Asynchronous request where running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
     /// When requesting Server-Sent Events: request_callback might be called more than twice, first call with empty contents on open, and with ec = error::eof on last call
     void request(const std::string &method, const std::string &path, std::istream &content,
@@ -394,7 +394,7 @@ namespace SimpleWeb {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback_));
     }
 
-    /// Close connections
+    /// Close connections.
     void stop() noexcept {
       LockGuard lock(connections_mutex);
       for(auto it = connections.begin(); it != connections.end();) {
@@ -755,6 +755,11 @@ namespace SimpleWeb {
   template <>
   class Client<HTTP> : public ClientBase<HTTP> {
   public:
+    /**
+     * Constructs a client object.
+     *
+     * @param server_port_path Server resource given by host[:port][/path]
+     */
     Client(const std::string &server_port_path) noexcept : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
 
   protected:

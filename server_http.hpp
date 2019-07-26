@@ -36,6 +36,7 @@ namespace SimpleWeb {
     class Session;
 
   public:
+    /// Response class where the content of the response is sent to client when the object is about to be destroyed.
     class Response : public std::enable_shared_from_this<Response>, public std::ostream {
       friend class ServerBase<socket_type>;
       friend class Server<socket_type>;
@@ -124,7 +125,9 @@ namespace SimpleWeb {
         return streambuf->size();
       }
 
-      /// Use this function if you need to recursively send parts of a longer message, or when using server-sent events (SSE).
+      /// Send the content of the response stream to client. The callback is called when the send has completed.
+      ///
+      /// Use this function if you need to recursively send parts of a longer message, or when using server-sent events.
       void send(const std::function<void(const error_code &)> &callback = nullptr) noexcept {
         session->connection->set_timeout(timeout_content);
 
@@ -138,18 +141,18 @@ namespace SimpleWeb {
           send_from_queue();
       }
 
-      /// Write directly to stream buffer using std::ostream::write
+      /// Write directly to stream buffer using std::ostream::write.
       void write(const char_type *ptr, std::streamsize n) {
         std::ostream::write(ptr, n);
       }
 
-      /// Convenience function for writing status line, potential header fields, and empty content
+      /// Convenience function for writing status line, potential header fields, and empty content.
       void write(StatusCode status_code = StatusCode::success_ok, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
         write_header(header, 0);
       }
 
-      /// Convenience function for writing status line, header fields, and content
+      /// Convenience function for writing status line, header fields, and content.
       void write(StatusCode status_code, string_view content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
         write_header(header, content.size());
@@ -157,7 +160,7 @@ namespace SimpleWeb {
           *this << content;
       }
 
-      /// Convenience function for writing status line, header fields, and content
+      /// Convenience function for writing status line, header fields, and content.
       void write(StatusCode status_code, std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
         content.seekg(0, std::ios::end);
@@ -168,22 +171,22 @@ namespace SimpleWeb {
           *this << content.rdbuf();
       }
 
-      /// Convenience function for writing success status line, header fields, and content
+      /// Convenience function for writing success status line, header fields, and content.
       void write(string_view content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         write(StatusCode::success_ok, content, header);
       }
 
-      /// Convenience function for writing success status line, header fields, and content
+      /// Convenience function for writing success status line, header fields, and content.
       void write(std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         write(StatusCode::success_ok, content, header);
       }
 
-      /// Convenience function for writing success status line, and header fields
+      /// Convenience function for writing success status line, and header fields.
       void write(const CaseInsensitiveMultimap &header) {
         write(StatusCode::success_ok, std::string(), header);
       }
 
-      /// If true, force server to close the connection after the response have been sent.
+      /// If set to true, force server to close the connection after the response have been sent.
       ///
       /// This is useful when implementing a HTTP/1.0-server sending content
       /// without specifying the content length.
@@ -197,7 +200,7 @@ namespace SimpleWeb {
       std::size_t size() noexcept {
         return streambuf.size();
       }
-      /// Convenience function to return std::string. The stream buffer is consumed.
+      /// Convenience function to return content as std::string. The stream buffer is consumed.
       std::string string() noexcept {
         try {
           std::string str;
@@ -233,6 +236,7 @@ namespace SimpleWeb {
 
       CaseInsensitiveMultimap header;
 
+      /// The result of the resource regular expression match of the request path.
       regex::smatch path_match;
 
       std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
@@ -363,16 +367,20 @@ namespace SimpleWeb {
     };
 
   public:
+    /// Use this container to add resources for specific request paths depending on the given regex and method.
     /// Warning: do not add or remove resources after start() is called
     std::map<regex_orderable, std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)>>> resource;
 
+    /// If the request path does not match a resource regex, this function is called.
     std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)>> default_resource;
 
+    /// Called when an error occurs.
     std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request>, const error_code &)> on_error;
 
+    /// Called on upgrade requests.
     std::function<void(std::unique_ptr<socket_type> &, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
 
-    /// If you have your own asio::io_service, store its pointer here before running start().
+    /// If you want to reuse an already created asio::io_service, store its pointer here before calling start().
     std::shared_ptr<io_context> io_service;
 
     /// If you know the server port in advance, use start() instead.
@@ -762,6 +770,7 @@ namespace SimpleWeb {
   template <>
   class Server<HTTP> : public ServerBase<HTTP> {
   public:
+    /// Constructs a server object.
     Server() noexcept : ServerBase<HTTP>::ServerBase(80) {}
 
   protected:
