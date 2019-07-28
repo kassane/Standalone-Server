@@ -20,9 +20,11 @@ See https://gitlab.com/eidheim/Simple-WebSocket-Server for an easy way to make W
 
 ### Usage
 
-See [http_examples.cpp](http_examples.cpp) or [https_examples.cpp](https_examples.cpp) for example usage. 
+See [http_examples.cpp](https://gitlab.com/eidheim/Simple-Web-Server/blob/master/http_examples.cpp) or
+[https_examples.cpp](https://gitlab.com/eidheim/Simple-Web-Server/blob/master/https_examples.cpp) for example usage.
+Particularly, the JSON-POST (using Boost.PropertyTree) and the GET /match/[number] examples might be relevant.
 
-See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[number] examples, which are most relevant.
+[Documentation](https://eidheim.gitlab.io/Simple-Web-Server/annotated.html) is also available, generated from the master branch.
 
 ### Dependencies
 

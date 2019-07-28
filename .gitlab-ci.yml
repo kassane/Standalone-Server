@@ -34,3 +34,16 @@ static-analysis:
   image: "registry.gitlab.com/eidheim/docker-images:arch"
   script:
     - scan-build cmake .. && scan-build --status-bugs make
+
+pages:
+  image: alpine
+  script:
+    - apk update && apk add doxygen
+    - cd .. && doxygen doxygen/Doxyfile
+    - mv doxygen/documentation/html/ public/
+  artifacts:
+    paths:
+    - public
+  only:
+    - master
+
