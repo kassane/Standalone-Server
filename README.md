@@ -31,7 +31,26 @@ Particularly, the JSON-POST (using Boost.PropertyTree) and the GET /match/[numbe
 * Boost is required to compile the examples
 * For HTTPS: OpenSSL libraries
 
-See [dependency installation instructions](https://gitlab.com/eidheim/Simple-Web-Server/blob/master/docs/dependency_install.md) for further information.
+Installation instructions for the dependencies needed to compile the examples on a selection of platforms can be seen below.
+Default build with Boost.Asio is assumed. Turn on CMake option `USE_STANDALONE_ASIO` to instead use standalone Asio.
+
+### Debian based distributions
+
+```sh
+sudo apt-get install libssl-dev libboost-filesystem-dev libboost-thread-dev
+```
+
+### Arch Linux based distributions
+
+```sh
+sudo pacman -S boost
+```
+
+### MacOS
+
+```sh
+brew install openssl boost
+```
 
 ## Compile and run
 
