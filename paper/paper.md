@@ -45,7 +45,24 @@ simultaneous use.
 An additional safety feature is stopping of asynchronous handlers when the
 associated client or server object has been destroyed. An atomic instruction
 based class, ScopeRunner, was implemented to achieve this since reader-writer
-locks proved more resource intensive for this specific task.
+locks proved more resource intensive for this specific task. In detail, a
+ScopeRunner object has an internal atomic counter that is increased when an
+asynchronous handler is run. At the end of the handler, the counter is
+decreased. When the destructor of a client or server object is called, the
+ScopeRunner object delays the destructor until its internal counter is 0, then
+sets the counter to a negative value. Finally, when the internal counter is
+negative, the handlers are returned from instead of potentially calling methods
+or using member variables of a destroyed client or server object.
+
+Compared to using a low-level network library, specialized for a specific task,
+a slight performance overhead is expected when using the more generalized
+Simple-Web-Server library. The various utility and safety features, and code
+abstractions contribute to this overhead, but a good balance between safety,
+usability and speed is continuously sought during development of this library.
+Regular expressions can for instance be used to define which functions to be
+called for specific request paths. This can be convenient for the library user,
+but a more specific algorithm can be more efficient than using regular
+expressions.
 
 The Asio C++ Library [@asio] is currently proposed to the C++ standard library
 [@wakely]. If accepted in one of the future revisions of the C++ programming
@@ -57,7 +74,10 @@ library.
 Simple-Web-Server is used in teaching at the Norwegian University of Science and
 Technology, and used in many external projects, for instance in the
 multi-purpose emulation framework MAME [@mame]. The library was also used in the
-senior thesis by Chung and Callin [@chung].
+senior thesis by Chung and Callin [@chung]. Furthermore, one of the motivations
+for the Simple-Web-Server project was to create a HTTP/1.1 library that was
+relatively easy to modify and extend to suit a specific need, which could also
+be positive with regards to source code contributions to the project.
 
 There are several alternatives to Simple-Web-Server. Most notably Boost.Beast
 [@beast], but this library is made for library authors and is thus harder to
