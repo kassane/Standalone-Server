@@ -322,6 +322,14 @@ namespace SimpleWeb {
     /// Returns the given std::chrono::system_clock::time_point as a string with the following format: Wed, 31 Jul 2019 11:34:23 GMT.
     /// Warning: this function uses std::gmtime and is thus not thread safe.
     static std::string to_string(const std::chrono::system_clock::time_point time_point) noexcept {
+      static std::string result_cache;
+      static std::chrono::system_clock::time_point last_time_point;
+
+      if(std::chrono::duration_cast<std::chrono::seconds>(time_point - last_time_point).count() == 0 && !result_cache.empty())
+        return result_cache;
+
+      last_time_point = time_point;
+
       std::string result;
       result.reserve(29);
 
@@ -376,6 +384,7 @@ namespace SimpleWeb {
 
       result += " GMT";
 
+      result_cache = result;
       return result;
     }
   };
