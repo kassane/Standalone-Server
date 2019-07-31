@@ -33,6 +33,7 @@ namespace SimpleWeb {
   template <class socket_type>
   class ServerBase {
   protected:
+    class Connection;
     class Session;
 
   public:
@@ -225,21 +226,10 @@ namespace SimpleWeb {
       friend class Session;
 
       asio::streambuf streambuf;
+      std::weak_ptr<Connection> connection;
+      std::string optimization = std::to_string(0); // TODO: figure out what goes wrong in gcc optimization without this line
 
-      std::string remote_address;
-      unsigned short remote_port = 0;
-
-      Request(std::size_t max_request_streambuf_size, std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint_) noexcept
-          : streambuf(max_request_streambuf_size), content(streambuf), remote_endpoint(std::move(remote_endpoint_)) {
-        try {
-          if(remote_endpoint) {
-            remote_address = remote_endpoint->address().to_string(); // TODO: figure out why this speed ups simple benchmarks
-            remote_port = remote_endpoint->port();
-          }
-        }
-        catch(...) {
-        }
-      }
+      Request(std::size_t max_request_streambuf_size, const std::shared_ptr<Connection> &connection_) noexcept : streambuf(max_request_streambuf_size), connection(connection_), content(streambuf) {}
 
     public:
       std::string method, path, query_string, http_version;
@@ -251,17 +241,27 @@ namespace SimpleWeb {
       /// The result of the resource regular expression match of the request path.
       regex::smatch path_match;
 
-      std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
-
       /// The time point when the request header was fully read.
       std::chrono::system_clock::time_point header_read_time;
 
-      const std::string &remote_endpoint_address() const noexcept {
-        return remote_address;
+      std::string remote_endpoint_address() const noexcept {
+        try {
+          if(auto connection = this->connection.lock())
+            return connection->socket->lowest_layer().remote_endpoint().address().to_string();
+        }
+        catch(...) {
+        }
+        return std::string();
       }
 
       unsigned short remote_endpoint_port() const noexcept {
-        return remote_port;
+        try {
+          if(auto connection = this->connection.lock())
+            return connection->socket->lowest_layer().remote_endpoint().port();
+        }
+        catch(...) {
+        }
+        return 0;
       }
 
       /// Returns query keys with percent-decoded values.
@@ -281,8 +281,6 @@ namespace SimpleWeb {
       std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
 
       std::unique_ptr<asio::steady_timer> timer;
-
-      std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
 
       void close() noexcept {
         error_code ec;
@@ -319,16 +317,7 @@ namespace SimpleWeb {
 
     class Session {
     public:
-      Session(std::size_t max_request_streambuf_size, std::shared_ptr<Connection> connection_) noexcept : connection(std::move(connection_)) {
-        if(!this->connection->remote_endpoint) {
-          try {
-            this->connection->remote_endpoint = std::make_shared<asio::ip::tcp::endpoint>(this->connection->socket->lowest_layer().remote_endpoint());
-          }
-          catch(...) {
-          }
-        }
-        request = std::shared_ptr<Request>(new Request(max_request_streambuf_size, this->connection->remote_endpoint));
-      }
+      Session(std::size_t max_request_streambuf_size, std::shared_ptr<Connection> connection_) noexcept : connection(std::move(connection_)), request(new Request(max_request_streambuf_size, connection)) {}
 
       std::shared_ptr<Connection> connection;
       std::shared_ptr<Request> request;
