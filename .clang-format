@@ -7,3 +7,4 @@ SpaceBeforeParens: Never
 BreakBeforeBraces: Custom
 BraceWrapping: {BeforeElse: true, BeforeCatch: true}
 NamespaceIndentation: All
+AllowShortCaseLabelsOnASingleLine: true

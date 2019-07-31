@@ -323,4 +323,6 @@ int main() {
       }
     }
   }
+
+  ASSERT(SimpleWeb::Date::to_string(std::chrono::system_clock::now()).size() == 29);
 }

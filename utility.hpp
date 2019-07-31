@@ -3,7 +3,9 @@
 
 #include "status_code.hpp"
 #include <atomic>
+#include <chrono>
 #include <cstdlib>
+#include <ctime>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -311,6 +313,70 @@ namespace SimpleWeb {
       else
         return false;
       return true;
+    }
+  };
+
+  /// Date class working with formats specified in RFC 7231 Date/Time Formats
+  class Date {
+  public:
+    /// Returns the given std::chrono::system_clock::time_point as a string with the following format: Wed, 31 Jul 2019 11:34:23 GMT.
+    /// Warning: this function uses std::gmtime and is thus not thread safe.
+    static std::string to_string(const std::chrono::system_clock::time_point time_point) noexcept {
+      std::string result;
+      result.reserve(29);
+
+      auto time = std::chrono::system_clock::to_time_t(time_point);
+      auto gmtime = std::gmtime(&time);
+
+      switch(gmtime->tm_wday) {
+      case 0: result += "Sun, "; break;
+      case 1: result += "Mon, "; break;
+      case 2: result += "Tue, "; break;
+      case 3: result += "Wed, "; break;
+      case 4: result += "Thu, "; break;
+      case 5: result += "Fri, "; break;
+      case 6: result += "Sat, "; break;
+      }
+
+      result += gmtime->tm_mday < 10 ? '0' : static_cast<char>(gmtime->tm_mday / 10 + 48);
+      result += static_cast<char>(gmtime->tm_mday % 10 + 48);
+
+      switch(gmtime->tm_mon) {
+      case 0: result += " Jan "; break;
+      case 1: result += " Feb "; break;
+      case 2: result += " Mar "; break;
+      case 3: result += " Apr "; break;
+      case 4: result += " May "; break;
+      case 5: result += " Jun "; break;
+      case 6: result += " Jul "; break;
+      case 7: result += " Aug "; break;
+      case 8: result += " Sep "; break;
+      case 9: result += " Oct "; break;
+      case 10: result += " Nov "; break;
+      case 11: result += " Des "; break;
+      }
+
+      auto year = gmtime->tm_year + 1900;
+      result += static_cast<char>(year / 1000 + 48);
+      result += static_cast<char>((year / 100) % 10 + 48);
+      result += static_cast<char>((year / 10) % 10 + 48);
+      result += static_cast<char>(year % 10 + 48);
+      result += ' ';
+
+      result += gmtime->tm_hour < 10 ? '0' : static_cast<char>(gmtime->tm_hour / 10 + 48);
+      result += static_cast<char>(gmtime->tm_hour % 10 + 48);
+      result += ':';
+
+      result += gmtime->tm_min < 10 ? '0' : static_cast<char>(gmtime->tm_min / 10 + 48);
+      result += static_cast<char>(gmtime->tm_min % 10 + 48);
+      result += ':';
+
+      result += gmtime->tm_sec < 10 ? '0' : static_cast<char>(gmtime->tm_sec / 10 + 48);
+      result += static_cast<char>(gmtime->tm_sec % 10 + 48);
+
+      result += " GMT";
+
+      return result;
     }
   };
 } // namespace SimpleWeb
