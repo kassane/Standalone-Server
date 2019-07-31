@@ -219,20 +219,23 @@ int main() {
 
   // Synchronous request examples
   try {
+    cout << "Example GET request to https://localhost:8080/match/123" << endl;
     auto r1 = client.request("GET", "/match/123");
-    cout << r1->content.rdbuf() << endl; // Alternatively, use the convenience function r1->content.string()
+    cout << "Response content: " << r1->content.rdbuf() << endl << endl; // Alternatively, use the convenience function r1->content.string()
 
+    cout << "Example POST request to https://localhost:8080/string" << endl;
     auto r2 = client.request("POST", "/string", json_string);
-    cout << r2->content.rdbuf() << endl;
+    cout << "Response content: " << r2->content.rdbuf() << endl << endl;
   }
   catch(const SimpleWeb::system_error &e) {
     cerr << "Client request error: " << e.what() << endl;
   }
 
   // Asynchronous request example
+  cout << "Example POST request to https://localhost:8080/json" << endl;
   client.request("POST", "/json", json_string, [](shared_ptr<HttpsClient::Response> response, const SimpleWeb::error_code &ec) {
     if(!ec)
-      cout << response->content.rdbuf() << endl;
+      cout << "Response content: " << response->content.rdbuf() << endl;
   });
   client.io_service->run();
 

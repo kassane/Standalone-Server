@@ -23,7 +23,14 @@ See also [benchmarks](https://gitlab.com/eidheim/Simple-Web-Server/blob/master/d
 
 See [http_examples.cpp](https://gitlab.com/eidheim/Simple-Web-Server/blob/master/http_examples.cpp) or
 [https_examples.cpp](https://gitlab.com/eidheim/Simple-Web-Server/blob/master/https_examples.cpp) for example usage.
-Particularly, the JSON-POST (using Boost.PropertyTree) and the GET /match/[number] examples might be relevant.
+The following server resources are setup using regular expressions to match request paths:
+* `POST /string` - responds with the posted string.
+* `POST /json` - parses the request content as JSON, and responds with some of the parsed values.
+* `GET /info` - responds with information extracted from the request.
+* `GET /match/([0-9]+)` - matches for instance `/match/123` and responds with the matched number `123`.
+* `GET /work` - starts a thread, simulating heavy work, and responds when the work is done.
+* `GET` - a special default_resource handler is called when a request path does not match any of the above resources.
+This resource responds with the content of files in the `web/`-folder if the request path identifies one of these files.
 
 [Documentation](https://eidheim.gitlab.io/Simple-Web-Server/annotated.html) is also available, generated from the master branch.
 
