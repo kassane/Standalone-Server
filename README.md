@@ -17,6 +17,8 @@ See https://gitlab.com/eidheim/Simple-WebSocket-Server for an easy way to make W
 * Sending outgoing messages is thread safe
 * Client creates necessary connections and perform reconnects when needed
 
+See also [benchmarks](https://gitlab.com/eidheim/Simple-Web-Server/blob/master/docs/benchmarks.md) for a performance comparisons to a few other HTTP libraries.
+
 ## Usage
 
 See [http_examples.cpp](https://gitlab.com/eidheim/Simple-Web-Server/blob/master/http_examples.cpp) or
