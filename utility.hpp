@@ -8,6 +8,7 @@
 #include <ctime>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -320,10 +321,14 @@ namespace SimpleWeb {
   class Date {
   public:
     /// Returns the given std::chrono::system_clock::time_point as a string with the following format: Wed, 31 Jul 2019 11:34:23 GMT.
-    /// Warning: this function uses std::gmtime and is thus not thread safe.
+    /// Warning: while this function is thread safe with other Date::to_string() calls,
+    /// it is not thread safe with other functions that include calls to std::gmtime.
     static std::string to_string(const std::chrono::system_clock::time_point time_point) noexcept {
       static std::string result_cache;
       static std::chrono::system_clock::time_point last_time_point;
+
+      static std::mutex mutex;
+      std::lock_guard<std::mutex> lock(mutex);
 
       if(std::chrono::duration_cast<std::chrono::seconds>(time_point - last_time_point).count() == 0 && !result_cache.empty())
         return result_cache;
