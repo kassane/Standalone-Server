@@ -366,7 +366,7 @@ namespace SimpleWeb {
       case 8: result += " Sep "; break;
       case 9: result += " Oct "; break;
       case 10: result += " Nov "; break;
-      case 11: result += " Des "; break;
+      case 11: result += " Dec "; break;
       }
 
       auto year = gmtime->tm_year + 1900;
