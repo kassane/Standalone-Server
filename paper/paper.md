@@ -68,8 +68,7 @@ The Asio C++ Library [@asio] is currently proposed to the C++ standard library
 [@wakely]. If accepted in one of the future revisions of the C++ programming
 language, C++ applications can make use of a standardized event handling system.
 Until then, efforts are made to support old and new versions of the Asio C++
-Library, as well as both the standalone and Boost [@boost] variants of the
-library.
+Library, as well as both the standalone and Boost variants of the library.
 
 Simple-Web-Server is used in teaching at the Norwegian University of Science and
 Technology, and used in many external projects, for instance in the
