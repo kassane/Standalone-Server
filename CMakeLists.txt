@@ -7,7 +7,7 @@ option(BUILD_TESTING "set ON to build library tests" OFF)
 option(USE_OPENSSL "set OFF to build without OpenSSL" ON)
 
 if(NOT MSVC)
-    add_compile_options(-std=c++11 -Wall -Wextra -Wsign-conversion)
+    add_compile_options(-std=c++11 -Wall -Wextra)
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         add_compile_options(-Wthread-safety)
     endif()
