@@ -321,8 +321,6 @@ namespace SimpleWeb {
   class Date {
   public:
     /// Returns the given std::chrono::system_clock::time_point as a string with the following format: Wed, 31 Jul 2019 11:34:23 GMT.
-    /// Warning: while this function is thread safe with other Date::to_string() calls,
-    /// it is not thread safe with other functions that include calls to std::gmtime.
     static std::string to_string(const std::chrono::system_clock::time_point time_point) noexcept {
       static std::string result_cache;
       static std::chrono::system_clock::time_point last_time_point;
@@ -339,7 +337,14 @@ namespace SimpleWeb {
       result.reserve(29);
 
       auto time = std::chrono::system_clock::to_time_t(time_point);
-      auto gmtime = std::gmtime(&time);
+      tm tm;
+#ifdef _MSC_VER
+      auto gmtime = gmtime_s(&time, &tm);
+#else
+      auto gmtime = gmtime_r(&time, &tm);
+#endif
+      if(!gmtime)
+        return {};
 
       switch(gmtime->tm_wday) {
       case 0: result += "Sun, "; break;
