@@ -40,7 +40,7 @@ namespace SimpleWeb {
       else
         context.set_default_verify_paths();
 
-      if(verify_file.size() > 0 || verify_certificate)
+      if(verify_certificate)
         context.set_verify_mode(asio::ssl::verify_peer);
       else
         context.set_verify_mode(asio::ssl::verify_none);
