@@ -61,8 +61,8 @@ int main() {
     *response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n"
               << content;
 
-    ASSERT(!request->remote_endpoint_address().empty());
-    ASSERT(request->remote_endpoint_port() != 0);
+    ASSERT(!request->remote_endpoint().address().to_string().empty());
+    ASSERT(request->remote_endpoint().port() != 0);
   };
 
   server.resource["^/string/dup$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
@@ -75,8 +75,8 @@ int main() {
     *response << content;
     response->send();
 
-    ASSERT(!request->remote_endpoint_address().empty());
-    ASSERT(request->remote_endpoint_port() != 0);
+    ASSERT(!request->remote_endpoint().address().to_string().empty());
+    ASSERT(request->remote_endpoint().port() != 0);
   };
 
   server.resource["^/string2$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {

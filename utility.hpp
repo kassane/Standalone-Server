@@ -12,6 +12,16 @@
 #include <string>
 #include <unordered_map>
 
+#ifndef DEPRECATED
+#if defined(__GNUC__) || defined(__clang__)
+#define DEPRECATED __attribute__((deprecated))
+#elif defined(_MSC_VER)
+#define DEPRECATED __declspec(deprecated)
+#else
+#define DEPRECATED
+#endif
+#endif
+
 #if __cplusplus > 201402L || _MSVC_LANG > 201402L
 #include <string_view>
 namespace SimpleWeb {

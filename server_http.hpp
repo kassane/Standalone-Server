@@ -254,7 +254,8 @@ namespace SimpleWeb {
         return asio::ip::tcp::endpoint();
       }
 
-      std::string remote_endpoint_address() const noexcept {
+      /// Deprecated, please use remote_endpoint().address().to_string() instead.
+      DEPRECATED std::string remote_endpoint_address() const noexcept {
         try {
           if(auto connection = this->connection.lock())
             return connection->socket->lowest_layer().remote_endpoint().address().to_string();
@@ -264,7 +265,8 @@ namespace SimpleWeb {
         return std::string();
       }
 
-      unsigned short remote_endpoint_port() const noexcept {
+      /// Deprecated, please use remote_endpoint().port() instead.
+      DEPRECATED unsigned short remote_endpoint_port() const noexcept {
         try {
           if(auto connection = this->connection.lock())
             return connection->socket->lowest_layer().remote_endpoint().port();
