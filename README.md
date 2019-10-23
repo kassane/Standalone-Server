@@ -65,12 +65,10 @@ brew install openssl boost
 
 Compile with a C++11 compliant compiler:
 ```sh
-mkdir build
-cd build
-cmake ..
-make
-cd ..
+cmake -H. -Bbuild
+cmake --build build
 ```
+
 
 ### HTTP
 
