@@ -69,7 +69,6 @@ cmake -H. -Bbuild
 cmake --build build
 ```
 
-
 ### HTTP
 
 Run the server and client examples: `./build/http_examples`
