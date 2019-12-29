@@ -129,7 +129,7 @@ namespace SimpleWeb {
       /// Send the content of the response stream to client. The callback is called when the send has completed.
       ///
       /// Use this function if you need to recursively send parts of a longer message, or when using server-sent events.
-      void send(const std::function<void(const error_code &)> &callback = nullptr) noexcept {
+      void send(std::function<void(const error_code &)> callback = nullptr) noexcept {
         session->connection->set_timeout(timeout_content);
 
         std::shared_ptr<asio::streambuf> streambuf = std::move(this->streambuf);
@@ -137,7 +137,7 @@ namespace SimpleWeb {
         rdbuf(this->streambuf.get());
 
         LockGuard lock(send_queue_mutex);
-        send_queue.emplace_back(streambuf, callback);
+        send_queue.emplace_back(std::move(streambuf), std::move(callback));
         if(send_queue.size() == 1)
           send_from_queue();
       }
@@ -432,13 +432,17 @@ namespace SimpleWeb {
     /// If you know the server port in advance, use start() instead.
     /// Accept requests, and if io_service was not set before calling bind(), run the internal io_service instead.
     /// Call after bind().
-    void accept_and_run() {
+    /// The callback parameter is called after the server is accepting connections.
+    void accept_and_run(std::function<void()> callback = nullptr) {
       acceptor->listen();
       accept();
 
       if(internal_io_service) {
         if(io_service->stopped())
           restart(*io_service);
+
+        if(callback)
+          io_service->post(std::move(callback));
 
         // If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
         threads.clear();
@@ -456,12 +460,15 @@ namespace SimpleWeb {
         for(auto &t : threads)
           t.join();
       }
+      else if(callback)
+        io_service->post(std::move(callback));
     }
 
-    /// Start the server by calling bind() and accept_and_run()
-    void start() {
+    /// Start the server by calling bind() and accept_and_run().
+    /// The callback parameter is called after the server is accepting connections.
+    void start(std::function<void()> callback = nullptr) {
       bind();
-      accept_and_run();
+      accept_and_run(std::move(callback));
     }
 
     /// Stop accepting new requests, and close current connections.
