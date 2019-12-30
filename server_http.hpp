@@ -394,11 +394,12 @@ namespace SimpleWeb {
     /// If you want to reuse an already created asio::io_service, store its pointer here before calling start().
     std::shared_ptr<io_context> io_service;
 
-    /// If you know the server port in advance, use start() instead.
-    /// Returns assigned port. If io_service is not set, an internal io_service is created instead.
-    /// Call before accept_and_run().
-    unsigned short bind() {
-      std::lock_guard<std::mutex> lock(start_stop_mutex);
+    /// Start the server.
+    /// If io_service is not set, an internal io_service is created instead.
+    /// The callback argument is called after the server is accepting connections,
+    /// where its parameter contains the assigned port.
+    void start(const std::function<void(unsigned short /*port*/)> &callback = nullptr) {
+      std::unique_lock<std::mutex> lock(start_stop_mutex);
 
       asio::ip::tcp::endpoint endpoint;
       if(config.address.size() > 0)
@@ -426,24 +427,20 @@ namespace SimpleWeb {
 
       after_bind();
 
-      return acceptor->local_endpoint().port();
-    }
+      auto port = acceptor->local_endpoint().port();
 
-    /// If you know the server port in advance, use start() instead.
-    /// Accept requests, and if io_service was not set before calling bind(), run the internal io_service instead.
-    /// Call after bind().
-    /// The callback parameter is called after the server is accepting connections.
-    void accept_and_run(std::function<void()> callback = nullptr) {
       acceptor->listen();
       accept();
 
+      if(internal_io_service && io_service->stopped())
+        restart(*io_service);
+
+      if(callback)
+        post(*io_service, [callback, port] {
+          callback(port);
+        });
+
       if(internal_io_service) {
-        if(io_service->stopped())
-          restart(*io_service);
-
-        if(callback)
-          post(*io_service, std::move(callback));
-
         // If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
         threads.clear();
         for(std::size_t c = 1; c < config.thread_pool_size; c++) {
@@ -452,23 +449,18 @@ namespace SimpleWeb {
           });
         }
 
+        lock.unlock();
+
         // Main thread
         if(config.thread_pool_size > 0)
           io_service->run();
+
+        lock.lock();
 
         // Wait for the rest of the threads, if any, to finish as well
         for(auto &t : threads)
           t.join();
       }
-      else if(callback)
-        post(*io_service, std::move(callback));
-    }
-
-    /// Start the server by calling bind() and accept_and_run().
-    /// The callback parameter is called after the server is accepting connections.
-    void start(std::function<void()> callback = nullptr) {
-      bind();
-      accept_and_run(std::move(callback));
     }
 
     /// Stop accepting new requests, and close current connections.
