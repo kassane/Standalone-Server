@@ -205,13 +205,15 @@ int main() {
     // Note that connection timeouts will also call this handle with ec set to SimpleWeb::errc::operation_canceled
   };
 
-  thread server_thread([&server]() {
+  // Start server and receive assigned port when server is listening for requests
+  promise<unsigned short> server_port;
+  thread server_thread([&server, &server_port]() {
     // Start server
-    server.start();
+    server.start([&server_port](unsigned short port) {
+      server_port.set_value(port);
+    });
   });
-
-  // Wait for server to start so that the client can connect
-  this_thread::sleep_for(chrono::seconds(1));
+  cout << "Server listening on port " << server_port.get_future().get() << endl << endl;
 
   // Client examples
   HttpClient client("localhost:8080");
