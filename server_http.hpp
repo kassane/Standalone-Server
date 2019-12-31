@@ -74,7 +74,9 @@ namespace SimpleWeb {
 
       void send_from_queue() REQUIRES(send_queue_mutex) {
         auto self = this->shared_from_this();
+        session->connection->set_timeout(timeout_content);
         asio::async_write(*self->session->connection->socket, *send_queue.begin()->first, [self](const error_code &ec, std::size_t /*bytes_transferred*/) {
+          self->session->connection->set_timeout(self->timeout_content); // Set timeout for next send
           auto lock = self->session->connection->handler_runner->continue_lock();
           if(!lock)
             return;
@@ -130,8 +132,6 @@ namespace SimpleWeb {
       ///
       /// Use this function if you need to recursively send parts of a longer message, or when using server-sent events.
       void send(std::function<void(const error_code &)> callback = nullptr) noexcept {
-        session->connection->set_timeout(timeout_content);
-
         std::shared_ptr<asio::streambuf> streambuf = std::move(this->streambuf);
         this->streambuf = std::unique_ptr<asio::streambuf>(new asio::streambuf());
         rdbuf(this->streambuf.get());
@@ -738,7 +738,7 @@ namespace SimpleWeb {
 
     void write(const std::shared_ptr<Session> &session,
                std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> &resource_function) {
-      session->connection->set_timeout(config.timeout_content);
+      session->connection->set_timeout(config.timeout_content); // Set timeout for first send
       auto response = std::shared_ptr<Response>(new Response(session, config.timeout_content), [this](Response *response_ptr) {
         auto response = std::shared_ptr<Response>(response_ptr);
         response->send_on_delete([this, response](const error_code &ec) {
