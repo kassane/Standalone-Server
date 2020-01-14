@@ -201,18 +201,9 @@ namespace SimpleWeb {
       std::size_t size() noexcept {
         return streambuf.size();
       }
-      /// Convenience function to return content as std::string. The stream buffer is consumed.
+      /// Convenience function to return content as std::string.
       std::string string() noexcept {
-        try {
-          std::string str;
-          auto size = streambuf.size();
-          str.resize(size);
-          read(&str[0], static_cast<std::streamsize>(size));
-          return str;
-        }
-        catch(...) {
-          return std::string();
-        }
+        return std::string(asio::buffers_begin(streambuf.data()), asio::buffers_end(streambuf.data()));
       }
 
     private:
@@ -598,12 +589,11 @@ namespace SimpleWeb {
             // Expect hex number to not exceed 16 bytes (64-bit number), but take into account previous additional read bytes
             auto chunk_size_streambuf = std::make_shared<asio::streambuf>(std::max<std::size_t>(16 + 2, session->request->streambuf.size()));
 
-            // Copy leftover bytes
-            std::ostream ostream(chunk_size_streambuf.get());
-            auto size = session->request->streambuf.size();
-            std::unique_ptr<char[]> buffer(new char[size]);
-            session->request->content.read(buffer.get(), static_cast<std::streamsize>(size));
-            ostream.write(buffer.get(), static_cast<std::streamsize>(size));
+            // Move leftover bytes
+            auto &source = session->request->streambuf;
+            auto &target = *chunk_size_streambuf;
+            target.commit(asio::buffer_copy(target.prepare(source.size()), source.data()));
+            source.consume(source.size());
 
             this->read_chunked_transfer_encoded(session, chunk_size_streambuf);
           }
@@ -642,10 +632,12 @@ namespace SimpleWeb {
 
           auto bytes_to_move = std::min<std::size_t>(chunk_size, num_additional_bytes);
           if(bytes_to_move > 0) {
-            std::ostream ostream(&session->request->streambuf);
-            std::unique_ptr<char[]> buffer(new char[bytes_to_move]);
-            istream.read(buffer.get(), static_cast<std::streamsize>(bytes_to_move));
-            ostream.write(buffer.get(), static_cast<std::streamsize>(bytes_to_move));
+            // Move leftover bytes
+            auto &source = *chunk_size_streambuf;
+            auto &target = session->request->streambuf;
+            target.commit(asio::buffer_copy(target.prepare(bytes_to_move), source.data(), bytes_to_move));
+            source.consume(bytes_to_move);
+
             if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
               auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
               response->write(StatusCode::client_error_payload_too_large);

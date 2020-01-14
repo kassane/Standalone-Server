@@ -57,6 +57,7 @@ int main() {
 
   server.resource["^/string$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     auto content = request->content.string();
+    ASSERT(content == request->content.string());
 
     *response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n"
               << content;
@@ -209,6 +210,13 @@ int main() {
     *response << "HTTP/1.1 200 OK\nname: value\n\n";
   };
 
+  std::string long_response;
+  for(int c = 0; c < 1000; ++c)
+    long_response += to_string(c);
+  server.resource["^/long-response$"]["GET"] = [&long_response](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
+    response->write(long_response, {{"name", "value"}});
+  };
+
   thread server_thread([&server]() {
     // Start server
     server.start();
@@ -240,6 +248,7 @@ int main() {
     {
       auto r = client.request("POST", "/string", "A string");
       ASSERT(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
+      ASSERT(r->content.string() == "A string");
       ASSERT(r->content.string() == "A string");
     }
 
@@ -375,6 +384,81 @@ int main() {
       ASSERT(r->content.string() == "testing");
       ASSERT(client.connections.size() == 1);
       ASSERT(connection == client.connections.begin()->get());
+    }
+  }
+
+  // Test large responses
+  {
+    HttpClient client("localhost:8080");
+    client.config.max_response_streambuf_size = 400;
+    {
+      bool thrown = false;
+      try {
+        auto r = client.request("GET", "/long-response");
+      }
+      catch(...) {
+        thrown = true;
+      }
+      ASSERT(thrown);
+    }
+    {
+      size_t calls = 0;
+      bool end = false;
+      std::string content;
+      client.request("GET", "/long-response", [&calls, &content, &end](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+        ASSERT(!ec);
+        content += response->content.string();
+        calls++;
+        if(calls == 1)
+          ASSERT(response->content.end == false);
+        end = response->content.end;
+      });
+      SimpleWeb::restart(*client.io_service);
+      client.io_service->run();
+      ASSERT(content == long_response);
+      ASSERT(calls > 2);
+      ASSERT(end == true);
+    }
+    {
+      size_t calls = 0;
+      std::string content;
+      client.request("GET", "/long-response", [&calls, &content](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+        if(calls == 0)
+          ASSERT(!ec);
+        content += response->content.string();
+        calls++;
+        response->close();
+      });
+      SimpleWeb::restart(*client.io_service);
+      client.io_service->run();
+      ASSERT(!content.empty());
+      ASSERT(calls >= 2);
+    }
+  }
+
+  // Test client timeout
+  {
+    HttpClient client("localhost:8080");
+    client.config.timeout = 2;
+    {
+      bool thrown = false;
+      try {
+        auto r = client.request("GET", "/work");
+      }
+      catch(...) {
+        thrown = true;
+      }
+      ASSERT(thrown);
+    }
+    {
+      bool call = false;
+      client.request("GET", "/work", [&call](shared_ptr<HttpClient::Response> /*response*/, const SimpleWeb::error_code &ec) {
+        ASSERT(ec);
+        call = true;
+      });
+      SimpleWeb::restart(*client.io_service);
+      client.io_service->run();
+      ASSERT(call);
     }
   }
 

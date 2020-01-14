@@ -85,7 +85,7 @@ namespace SimpleWeb {
                     if(!lock)
                       return;
                     if(!ec) {
-                      std::shared_ptr<Response> response(new Response(this->config.max_response_streambuf_size));
+                      std::shared_ptr<Response> response(new Response(this->config.max_response_streambuf_size, session->connection));
                       session->connection->set_timeout(this->config.timeout_connect);
                       asio::async_read_until(session->connection->socket->next_layer(), response->streambuf, "\r\n\r\n", [this, session, response](const error_code &ec, std::size_t /*bytes_transferred*/) {
                         session->connection->cancel_timeout();

@@ -72,7 +72,7 @@ public:
   }
 
   void parse_response_header_test() {
-    std::shared_ptr<Response> response(new Response(static_cast<size_t>(-1)));
+    std::shared_ptr<Response> response(new Response(static_cast<size_t>(-1), nullptr));
 
     ostream stream(&response->streambuf);
     stream << "HTTP/1.1 200 OK\r\n";
