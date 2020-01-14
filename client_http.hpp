@@ -561,16 +561,17 @@ namespace SimpleWeb {
               session->callback(ec);
           }
           else if((header_it = session->response->header.find("Transfer-Encoding")) != session->response->header.end() && header_it->second == "chunked") {
-            auto chunks_streambuf = std::make_shared<asio::streambuf>(this->config.max_response_streambuf_size);
+            // Expect hex number to not exceed 16 bytes (64-bit number), but take into account previous additional read bytes
+            auto chunk_size_streambuf = std::make_shared<asio::streambuf>(std::max<std::size_t>(16 + 2, session->response->streambuf.size()));
 
             // Copy leftover bytes
-            std::ostream ostream(chunks_streambuf.get());
+            std::ostream ostream(chunk_size_streambuf.get());
             auto size = session->response->streambuf.size();
             std::unique_ptr<char[]> buffer(new char[size]);
             session->response->content.read(buffer.get(), static_cast<std::streamsize>(size));
             ostream.write(buffer.get(), static_cast<std::streamsize>(size));
 
-            this->read_chunked_transfer_encoded(session, chunks_streambuf);
+            this->read_chunked_transfer_encoded(session, chunk_size_streambuf);
           }
           else if(session->response->http_version < "1.1" || ((header_it = session->response->header.find("Session")) != session->response->header.end() && header_it->second == "close")) {
             session->connection->set_timeout();
@@ -639,81 +640,84 @@ namespace SimpleWeb {
       });
     }
 
-    void read_chunked_transfer_encoded(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunks_streambuf) {
+    void read_chunked_transfer_encoded(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunk_size_streambuf) {
       session->connection->set_timeout();
-      asio::async_read_until(*session->connection->socket, *chunks_streambuf, "\r\n", [this, session, chunks_streambuf](const error_code &ec, size_t bytes_transferred) {
+      asio::async_read_until(*session->connection->socket, *chunk_size_streambuf, "\r\n", [this, session, chunk_size_streambuf](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
-        if(chunks_streambuf->size() == chunks_streambuf->max_size()) {
-          session->callback(make_error_code::make_error_code(errc::message_size));
-          return;
-        }
 
         if(!ec) {
-          std::istream istream(chunks_streambuf.get());
+          std::istream istream(chunk_size_streambuf.get());
           std::string line;
           getline(istream, line);
           bytes_transferred -= line.size() + 1;
-          unsigned long length = 0;
+          unsigned long chunk_size = 0;
           try {
-            length = stoul(line, 0, 16);
+            chunk_size = stoul(line, 0, 16);
           }
           catch(...) {
             session->callback(make_error_code::make_error_code(errc::protocol_error));
             return;
           }
 
-          auto num_additional_bytes = chunks_streambuf->size() - bytes_transferred;
+          auto num_additional_bytes = chunk_size_streambuf->size() - bytes_transferred;
 
-          if((2 + length) > num_additional_bytes) {
+          auto bytes_to_move = std::min<std::size_t>(chunk_size, num_additional_bytes);
+          if(bytes_to_move > 0) {
+            std::ostream ostream(&session->response->streambuf);
+            std::unique_ptr<char[]> buffer(new char[bytes_to_move]);
+            istream.read(buffer.get(), static_cast<std::streamsize>(bytes_to_move));
+            ostream.write(buffer.get(), static_cast<std::streamsize>(bytes_to_move));
+            if(session->response->streambuf.size() == session->response->streambuf.max_size()) {
+              session->callback(make_error_code::make_error_code(errc::message_size));
+              return;
+            }
+          }
+
+          if((2 + chunk_size) > num_additional_bytes) {
             session->connection->set_timeout();
-            asio::async_read(*session->connection->socket, *chunks_streambuf, asio::transfer_exactly(2 + length - num_additional_bytes), [this, session, chunks_streambuf, length](const error_code &ec, size_t /*bytes_transferred*/) {
+            asio::async_read(*session->connection->socket, session->response->streambuf, asio::transfer_exactly(2 + chunk_size - num_additional_bytes), [this, session, chunk_size_streambuf, chunk_size](const error_code &ec, size_t /*bytes_transferred*/) {
               session->connection->cancel_timeout();
               auto lock = session->connection->handler_runner->continue_lock();
               if(!lock)
                 return;
-              if(chunks_streambuf->size() == chunks_streambuf->max_size()) {
+              if(session->response->streambuf.size() == session->response->streambuf.max_size()) {
                 session->callback(make_error_code::make_error_code(errc::message_size));
                 return;
               }
 
-              if(!ec)
-                this->read_chunked_transfer_encoded_chunk(session, chunks_streambuf, length);
+              if(!ec) {
+                std::istream istream(&session->response->streambuf);
+
+                // Remove "\r\n"
+                istream.get();
+                istream.get();
+
+                if(chunk_size > 0)
+                  read_chunked_transfer_encoded(session, chunk_size_streambuf);
+                else
+                  session->callback(error_code());
+              }
               else
                 session->callback(ec);
             });
           }
-          else
-            this->read_chunked_transfer_encoded_chunk(session, chunks_streambuf, length);
+          else {
+            // Remove "\r\n"
+            istream.get();
+            istream.get();
+
+            if(chunk_size > 0)
+              read_chunked_transfer_encoded(session, chunk_size_streambuf);
+            else
+              session->callback(error_code());
+          }
         }
         else
           session->callback(ec);
       });
-    }
-
-    void read_chunked_transfer_encoded_chunk(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunks_streambuf, unsigned long length) {
-      std::istream istream(chunks_streambuf.get());
-      if(length > 0) {
-        std::ostream ostream(&session->response->streambuf);
-        std::unique_ptr<char[]> buffer(new char[length]);
-        istream.read(buffer.get(), static_cast<std::streamsize>(length));
-        ostream.write(buffer.get(), static_cast<std::streamsize>(length));
-        if(session->response->streambuf.size() == session->response->streambuf.max_size()) {
-          session->callback(make_error_code::make_error_code(errc::message_size));
-          return;
-        }
-      }
-
-      // Remove "\r\n"
-      istream.get();
-      istream.get();
-
-      if(length > 0)
-        read_chunked_transfer_encoded(session, chunks_streambuf);
-      else
-        session->callback(error_code());
     }
 
     void read_server_sent_event(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &events_streambuf) {
