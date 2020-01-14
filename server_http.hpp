@@ -634,7 +634,6 @@ namespace SimpleWeb {
           std::string line;
           getline(istream, line);
           bytes_transferred -= line.size() + 1;
-          line.pop_back();
           unsigned long length = 0;
           try {
             length = stoul(line, 0, 16);
