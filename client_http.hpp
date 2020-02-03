@@ -559,8 +559,12 @@ namespace SimpleWeb {
           return;
         if(!ec)
           this->read(session);
-        else
-          session->callback(ec);
+        else {
+          if(session->connection->attempt_reconnect && ec != error::operation_aborted)
+            reconnect(session, ec);
+          else
+            session->callback(ec);
+        }
       });
     }
 
@@ -620,28 +624,31 @@ namespace SimpleWeb {
             session->callback(ec);
         }
         else {
-          if(session->connection->attempt_reconnect && ec != error::operation_aborted) {
-            LockGuard lock(connections_mutex);
-            auto it = connections.find(session->connection);
-            if(it != connections.end()) {
-              connections.erase(it);
-              session->connection = create_connection();
-              session->connection->attempt_reconnect = false;
-              session->connection->in_use = true;
-              session->response = std::shared_ptr<Response>(new Response(this->config.max_response_streambuf_size, session->connection));
-              connections.emplace(session->connection);
-              lock.unlock();
-              this->connect(session);
-            }
-            else {
-              lock.unlock();
-              session->callback(ec);
-            }
-          }
+          if(session->connection->attempt_reconnect && ec != error::operation_aborted)
+            reconnect(session, ec);
           else
             session->callback(ec);
         }
       });
+    }
+
+    void reconnect(const std::shared_ptr<Session> &session, const error_code &ec) {
+      LockGuard lock(connections_mutex);
+      auto it = connections.find(session->connection);
+      if(it != connections.end()) {
+        connections.erase(it);
+        session->connection = create_connection();
+        session->connection->attempt_reconnect = false;
+        session->connection->in_use = true;
+        session->response = std::shared_ptr<Response>(new Response(this->config.max_response_streambuf_size, session->connection));
+        connections.emplace(session->connection);
+        lock.unlock();
+        this->connect(session);
+      }
+      else {
+        lock.unlock();
+        session->callback(ec);
+      }
     }
 
     void read_content(const std::shared_ptr<Session> &session, std::size_t remaining_length) {
