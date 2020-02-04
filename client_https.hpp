@@ -50,7 +50,7 @@ namespace SimpleWeb {
     asio::ssl::context context;
 
     std::shared_ptr<Connection> create_connection() noexcept override {
-      return std::make_shared<Connection>(handler_runner, config.timeout, *io_service, context);
+      return std::make_shared<Connection>(handler_runner, *io_service, context);
     }
 
     void connect(const std::shared_ptr<Session> &session) override {

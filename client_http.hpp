@@ -150,11 +150,10 @@ namespace SimpleWeb {
     class Connection : public std::enable_shared_from_this<Connection> {
     public:
       template <typename... Args>
-      Connection(std::shared_ptr<ScopeRunner> handler_runner_, long timeout, Args &&... args) noexcept
-          : handler_runner(std::move(handler_runner_)), timeout(timeout), socket(new socket_type(std::forward<Args>(args)...)) {}
+      Connection(std::shared_ptr<ScopeRunner> handler_runner_, Args &&... args) noexcept
+          : handler_runner(std::move(handler_runner_)), socket(new socket_type(std::forward<Args>(args)...)) {}
 
       std::shared_ptr<ScopeRunner> handler_runner;
-      long timeout;
 
       std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
       bool in_use = false;
@@ -168,9 +167,7 @@ namespace SimpleWeb {
         socket->lowest_layer().cancel(ec);
       }
 
-      void set_timeout(long seconds = 0) noexcept {
-        if(seconds == 0)
-          seconds = timeout;
+      void set_timeout(long seconds) noexcept {
         if(seconds == 0) {
           timer = nullptr;
           return;
@@ -314,10 +311,12 @@ namespace SimpleWeb {
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
       session->callback = [this, session_weak, request_callback](const error_code &ec) {
         if(auto session = session_weak.lock()) {
+          if(session->response->content.end) {
+            session->connection->cancel_timeout();
+            session->connection->in_use = false;
+          }
           {
             LockGuard lock(this->connections_mutex);
-            if(session->response->content.end)
-              session->connection->in_use = false;
 
             // Remove unused connections, but keep one open for HTTP persistent connection:
             std::size_t unused_connections = 0;
@@ -389,10 +388,12 @@ namespace SimpleWeb {
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
       session->callback = [this, session_weak, request_callback](const error_code &ec) {
         if(auto session = session_weak.lock()) {
+          if(session->response->content.end) {
+            session->connection->cancel_timeout();
+            session->connection->in_use = false;
+          }
           {
             LockGuard lock(this->connections_mutex);
-            if(session->response->content.end)
-              session->connection->in_use = false;
 
             // Remove unused connections, but keep one open for HTTP persistent connection:
             std::size_t unused_connections = 0;
@@ -551,9 +552,8 @@ namespace SimpleWeb {
     }
 
     void write(const std::shared_ptr<Session> &session) {
-      session->connection->set_timeout();
+      session->connection->set_timeout(config.timeout);
       asio::async_write(*session->connection->socket, session->request_streambuf->data(), [this, session](const error_code &ec, std::size_t /*bytes_transferred*/) {
-        session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
@@ -569,9 +569,7 @@ namespace SimpleWeb {
     }
 
     void read(const std::shared_ptr<Session> &session) {
-      session->connection->set_timeout();
       asio::async_read_until(*session->connection->socket, session->response->streambuf, HeaderEndMatch(), [this, session](const error_code &ec, std::size_t bytes_transferred) {
-        session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
@@ -652,9 +650,7 @@ namespace SimpleWeb {
     }
 
     void read_content(const std::shared_ptr<Session> &session, std::size_t remaining_length) {
-      session->connection->set_timeout();
       asio::async_read(*session->connection->socket, session->response->streambuf, asio::transfer_exactly(remaining_length), [this, session, remaining_length](const error_code &ec, std::size_t bytes_transferred) {
-        session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
@@ -675,9 +671,7 @@ namespace SimpleWeb {
     }
 
     void read_content(const std::shared_ptr<Session> &session) {
-      session->connection->set_timeout();
       asio::async_read(*session->connection->socket, session->response->streambuf, [this, session](const error_code &ec_, std::size_t /*bytes_transferred*/) {
-        session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
@@ -704,9 +698,7 @@ namespace SimpleWeb {
     }
 
     void read_chunked_transfer_encoded(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunk_size_streambuf) {
-      session->connection->set_timeout();
       asio::async_read_until(*session->connection->socket, *chunk_size_streambuf, "\r\n", [this, session, chunk_size_streambuf](const error_code &ec, size_t bytes_transferred) {
-        session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
@@ -747,9 +739,7 @@ namespace SimpleWeb {
           }
 
           if((2 + chunk_size) > num_additional_bytes) {
-            session->connection->set_timeout();
             asio::async_read(*session->connection->socket, session->response->streambuf, asio::transfer_exactly(2 + chunk_size - num_additional_bytes), [this, session, chunk_size_streambuf](const error_code &ec, size_t /*bytes_transferred*/) {
-              session->connection->cancel_timeout();
               auto lock = session->connection->handler_runner->continue_lock();
               if(!lock)
                 return;
@@ -781,9 +771,7 @@ namespace SimpleWeb {
     }
 
     void read_server_sent_event(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &events_streambuf) {
-      session->connection->set_timeout();
       asio::async_read_until(*session->connection->socket, *events_streambuf, HeaderEndMatch(), [this, session, events_streambuf](const error_code &ec, std::size_t /*bytes_transferred*/) {
-        session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
@@ -825,7 +813,7 @@ namespace SimpleWeb {
 
   protected:
     std::shared_ptr<Connection> create_connection() noexcept override {
-      return std::make_shared<Connection>(handler_runner, config.timeout, *io_service);
+      return std::make_shared<Connection>(handler_runner, *io_service);
     }
 
     void connect(const std::shared_ptr<Session> &session) override {

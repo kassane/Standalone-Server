@@ -74,9 +74,7 @@ namespace SimpleWeb {
 
       void send_from_queue() REQUIRES(send_queue_mutex) {
         auto self = this->shared_from_this();
-        session->connection->set_timeout(timeout_content);
         asio::async_write(*self->session->connection->socket, *send_queue.begin()->first, [self](const error_code &ec, std::size_t /*bytes_transferred*/) {
-          self->session->connection->set_timeout(self->timeout_content); // Set timeout for next send
           auto lock = self->session->connection->handler_runner->continue_lock();
           if(!lock)
             return;
@@ -111,10 +109,8 @@ namespace SimpleWeb {
       }
 
       void send_on_delete(const std::function<void(const error_code &)> &callback = nullptr) noexcept {
-        session->connection->set_timeout(timeout_content);
         auto self = this->shared_from_this(); // Keep Response instance alive through the following async_write
         asio::async_write(*session->connection->socket, *streambuf, [self, callback](const error_code &ec, std::size_t /*bytes_transferred*/) {
-          self->session->connection->cancel_timeout();
           auto lock = self->session->connection->handler_runner->continue_lock();
           if(!lock)
             return;
@@ -338,9 +334,9 @@ namespace SimpleWeb {
       /// If io_service is not set, number of threads that the server will use when start() is called.
       /// Defaults to 1 thread.
       std::size_t thread_pool_size = 1;
-      /// Timeout on request handling. Defaults to 5 seconds.
+      /// Timeout on request completion. Defaults to 5 seconds.
       long timeout_request = 5;
-      /// Timeout on content handling. Defaults to 300 seconds.
+      /// Timeout on request/response content completion. Defaults to 300 seconds.
       long timeout_content = 300;
       /// Maximum size of request stream buffer. Defaults to architecture maximum.
       /// Reaching this limit will result in a message_size error code.
@@ -522,7 +518,7 @@ namespace SimpleWeb {
     void read(const std::shared_ptr<Session> &session) {
       session->connection->set_timeout(config.timeout_request);
       asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, std::size_t bytes_transferred) {
-        session->connection->cancel_timeout();
+        session->connection->set_timeout(config.timeout_content);
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
@@ -562,9 +558,7 @@ namespace SimpleWeb {
               return;
             }
             if(content_length > num_additional_bytes) {
-              session->connection->set_timeout(config.timeout_content);
               asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, std::size_t /*bytes_transferred*/) {
-                session->connection->cancel_timeout();
                 auto lock = session->connection->handler_runner->continue_lock();
                 if(!lock)
                   return;
@@ -599,9 +593,7 @@ namespace SimpleWeb {
     }
 
     void read_chunked_transfer_encoded(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunk_size_streambuf) {
-      session->connection->set_timeout(config.timeout_content);
       asio::async_read_until(*session->connection->socket, *chunk_size_streambuf, "\r\n", [this, session, chunk_size_streambuf](const error_code &ec, size_t bytes_transferred) {
-        session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
@@ -641,9 +633,7 @@ namespace SimpleWeb {
           }
 
           if((2 + chunk_size) > num_additional_bytes) {
-            session->connection->set_timeout(config.timeout_content);
             asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(2 + chunk_size - num_additional_bytes), [this, session, chunk_size_streambuf, chunk_size](const error_code &ec, size_t /*bytes_transferred*/) {
-              session->connection->cancel_timeout();
               auto lock = session->connection->handler_runner->continue_lock();
               if(!lock)
                 return;
@@ -716,10 +706,10 @@ namespace SimpleWeb {
 
     void write(const std::shared_ptr<Session> &session,
                std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> &resource_function) {
-      session->connection->set_timeout(config.timeout_content); // Set timeout for first send
       auto response = std::shared_ptr<Response>(new Response(session, config.timeout_content), [this](Response *response_ptr) {
         auto response = std::shared_ptr<Response>(response_ptr);
         response->send_on_delete([this, response](const error_code &ec) {
+          response->session->connection->cancel_timeout();
           if(!ec) {
             if(response->close_connection_after_response)
               return;
