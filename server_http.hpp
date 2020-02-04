@@ -527,13 +527,6 @@ namespace SimpleWeb {
         if(!lock)
           return;
         session->request->header_read_time = std::chrono::system_clock::now();
-        if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
-          auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
-          response->write(StatusCode::client_error_payload_too_large);
-          if(this->on_error)
-            this->on_error(session->request, make_error_code::make_error_code(errc::message_size));
-          return;
-        }
 
         if(!ec) {
           // request->streambuf.size() is not necessarily the same as bytes_transferred, from Boost-docs:
@@ -561,6 +554,13 @@ namespace SimpleWeb {
                 this->on_error(session->request, make_error_code::make_error_code(errc::protocol_error));
               return;
             }
+            if(content_length > session->request->streambuf.max_size()) {
+              auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+              response->write(StatusCode::client_error_payload_too_large);
+              if(this->on_error)
+                this->on_error(session->request, make_error_code::make_error_code(errc::message_size));
+              return;
+            }
             if(content_length > num_additional_bytes) {
               session->connection->set_timeout(config.timeout_content);
               asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, std::size_t /*bytes_transferred*/) {
@@ -568,13 +568,6 @@ namespace SimpleWeb {
                 auto lock = session->connection->handler_runner->continue_lock();
                 if(!lock)
                   return;
-                if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
-                  auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
-                  response->write(StatusCode::client_error_payload_too_large);
-                  if(this->on_error)
-                    this->on_error(session->request, make_error_code::make_error_code(errc::message_size));
-                  return;
-                }
 
                 if(!ec)
                   this->find_resource(session);
@@ -628,6 +621,14 @@ namespace SimpleWeb {
             return;
           }
 
+          if(chunk_size + session->request->streambuf.size() > session->request->streambuf.max_size()) {
+            auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+            response->write(StatusCode::client_error_payload_too_large);
+            if(this->on_error)
+              this->on_error(session->request, make_error_code::make_error_code(errc::message_size));
+            return;
+          }
+
           auto num_additional_bytes = chunk_size_streambuf->size() - bytes_transferred;
 
           auto bytes_to_move = std::min<std::size_t>(chunk_size, num_additional_bytes);
@@ -637,14 +638,6 @@ namespace SimpleWeb {
             auto &target = session->request->streambuf;
             target.commit(asio::buffer_copy(target.prepare(bytes_to_move), source.data(), bytes_to_move));
             source.consume(bytes_to_move);
-
-            if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
-              auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
-              response->write(StatusCode::client_error_payload_too_large);
-              if(this->on_error)
-                this->on_error(session->request, make_error_code::make_error_code(errc::message_size));
-              return;
-            }
           }
 
           if((2 + chunk_size) > num_additional_bytes) {
@@ -654,13 +647,6 @@ namespace SimpleWeb {
               auto lock = session->connection->handler_runner->continue_lock();
               if(!lock)
                 return;
-              if(chunk_size_streambuf->size() == chunk_size_streambuf->max_size()) {
-                auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
-                response->write(StatusCode::client_error_payload_too_large);
-                if(this->on_error)
-                  this->on_error(session->request, make_error_code::make_error_code(errc::message_size));
-                return;
-              }
 
               if(!ec) {
                 std::istream istream(&session->request->streambuf);
