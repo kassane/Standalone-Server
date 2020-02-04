@@ -722,7 +722,7 @@ namespace SimpleWeb {
             return;
           }
 
-          if(chunk_size + session->response->streambuf.size() > session->response->streambuf.max_size()) {
+          if(2 + chunk_size + session->response->streambuf.size() > session->response->streambuf.max_size()) {
             session->response->content.end = false;
             session->callback(ec);
             session->response = std::shared_ptr<Response>(new Response(*session->response));

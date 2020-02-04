@@ -613,7 +613,7 @@ namespace SimpleWeb {
             return;
           }
 
-          if(chunk_size + session->request->streambuf.size() > session->request->streambuf.max_size()) {
+          if(2 + chunk_size + session->request->streambuf.size() > session->request->streambuf.max_size()) {
             auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
             response->write(StatusCode::client_error_payload_too_large);
             if(this->on_error)
