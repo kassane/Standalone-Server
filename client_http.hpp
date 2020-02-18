@@ -216,6 +216,7 @@ namespace SimpleWeb {
     /// If you reuse the io_service for other tasks, use the asynchronous request functions instead.
     /// When requesting Server-Sent Events: will throw on error::eof, please use asynchronous request functions instead.
     std::shared_ptr<Response> request(const std::string &method, const std::string &path = {"/"}, string_view content = {}, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
+      start_internal_io_service_handler_thread();
       std::promise<std::shared_ptr<Response>> response_promise;
       std::future<std::shared_ptr<Response>> response_future = response_promise.get_future();
       std::shared_ptr<Response> response;
@@ -251,6 +252,7 @@ namespace SimpleWeb {
     /// If you reuse the io_service for other tasks, use the asynchronous request functions instead.
     /// When requesting Server-Sent Events: will throw on error::eof, please use asynchronous request functions instead.
     std::shared_ptr<Response> request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
+      start_internal_io_service_handler_thread();
       std::promise<std::shared_ptr<Response>> response_promise;
       std::future<std::shared_ptr<Response>> response_future = response_promise.get_future();
       std::shared_ptr<Response> response;
@@ -465,8 +467,7 @@ namespace SimpleWeb {
       port = parsed_host_port.second;
     }
 
-    std::shared_ptr<Connection> get_connection() noexcept {
-      std::shared_ptr<Connection> connection;
+    void start_internal_io_service_handler_thread() noexcept {
       LockGuard lock(connections_mutex);
 
       if(!io_service) {
@@ -476,6 +477,15 @@ namespace SimpleWeb {
           asio::io_service::work dummy_work(*io_service);
           io_service->run();
         }));
+      }
+    }
+
+    std::shared_ptr<Connection> get_connection() noexcept {
+      std::shared_ptr<Connection> connection;
+      LockGuard lock(connections_mutex);
+
+      if(!io_service) {
+        io_service = std::make_shared<asio::io_service>();
       }
 
       for(auto it = connections.begin(); it != connections.end(); ++it) {
