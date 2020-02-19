@@ -432,9 +432,9 @@ namespace SimpleWeb {
 
       std::shared_ptr<Response> response;
       std::promise<std::shared_ptr<Response>> response_promise;
-      bool stop_future_handlers = false;
-      request(method, path, content, header, [&response, &response_promise, &stop_future_handlers](std::shared_ptr<Response> response_, error_code ec) {
-        if(stop_future_handlers)
+      auto stop_future_handlers = std::make_shared<bool>(false);
+      request(method, path, content, header, [&response, &response_promise, stop_future_handlers](std::shared_ptr<Response> response_, error_code ec) {
+        if(*stop_future_handlers)
           return;
 
         if(!response)
@@ -455,7 +455,7 @@ namespace SimpleWeb {
 
         if(ec) {
           response_promise.set_exception(std::make_exception_ptr(system_error(ec)));
-          stop_future_handlers = true;
+          *stop_future_handlers = true;
         }
         else if(response_->content.end)
           response_promise.set_value(response);
