@@ -389,27 +389,25 @@ int main() {
 
   // Test large responses
   {
-    // Don't mix synchronous and asynchronous on the same client
-    HttpClient sync_request_client("localhost:8080");
-    HttpClient async_request_client("localhost:8080");
-    sync_request_client.config.max_response_streambuf_size = 400;
-    async_request_client.config.max_response_streambuf_size = 400;
-    async_request_client.io_service = std::make_shared<SimpleWeb::io_context>();
     {
+      HttpClient client("localhost:8080");
+      client.config.max_response_streambuf_size = 400;
       bool thrown = false;
       try {
-        auto r = sync_request_client.request("GET", "/long-response");
+        auto r = client.request("GET", "/long-response");
       }
       catch(...) {
         thrown = true;
       }
       ASSERT(thrown);
     }
+    HttpClient client("localhost:8080");
+    client.config.max_response_streambuf_size = 400;
     {
       size_t calls = 0;
       bool end = false;
       std::string content;
-      async_request_client.request("GET", "/long-response", [&calls, &content, &end](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+      client.request("GET", "/long-response", [&calls, &content, &end](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
         ASSERT(!ec);
         content += response->content.string();
         calls++;
@@ -417,8 +415,7 @@ int main() {
           ASSERT(response->content.end == false);
         end = response->content.end;
       });
-      SimpleWeb::restart(*async_request_client.io_service);
-      async_request_client.io_service->run();
+      client.io_service->run();
       ASSERT(content == long_response);
       ASSERT(calls > 2);
       ASSERT(end == true);
@@ -426,15 +423,15 @@ int main() {
     {
       size_t calls = 0;
       std::string content;
-      async_request_client.request("GET", "/long-response", [&calls, &content](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+      client.request("GET", "/long-response", [&calls, &content](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
         if(calls == 0)
           ASSERT(!ec);
         content += response->content.string();
         calls++;
         response->close();
       });
-      SimpleWeb::restart(*async_request_client.io_service);
-      async_request_client.io_service->run();
+      SimpleWeb::restart(*client.io_service);
+      client.io_service->run();
       ASSERT(!content.empty());
       ASSERT(calls >= 2);
     }
@@ -442,31 +439,28 @@ int main() {
 
   // Test client timeout
   {
-    // Don't mix synchronous and asynchronous on the same client
-    HttpClient sync_request_client("localhost:8080");
-    HttpClient async_request_client("localhost:8080");
-    sync_request_client.config.timeout = 2;
-    async_request_client.config.timeout = 2;
-    {
-      bool thrown = false;
-      try {
-        auto r = sync_request_client.request("GET", "/work");
-      }
-      catch(...) {
-        thrown = true;
-      }
-      ASSERT(thrown);
+    HttpClient client("localhost:8080");
+    client.config.timeout = 2;
+    bool thrown = false;
+    try {
+      auto r = client.request("GET", "/work");
     }
-    {
-      bool call = false;
-      async_request_client.request("GET", "/work", [&call](shared_ptr<HttpClient::Response> /*response*/, const SimpleWeb::error_code &ec) {
-        ASSERT(ec);
-        call = true;
-      });
-      SimpleWeb::restart(*async_request_client.io_service);
-      async_request_client.io_service->run();
-      ASSERT(call);
+    catch(...) {
+      thrown = true;
     }
+    ASSERT(thrown);
+  }
+  {
+    HttpClient client("localhost:8080");
+    client.config.timeout = 2;
+    bool call = false;
+    client.request("GET", "/work", [&call](shared_ptr<HttpClient::Response> /*response*/, const SimpleWeb::error_code &ec) {
+      ASSERT(ec);
+      call = true;
+    });
+    SimpleWeb::restart(*client.io_service);
+    client.io_service->run();
+    ASSERT(call);
   }
 
   // Test asynchronous requests
