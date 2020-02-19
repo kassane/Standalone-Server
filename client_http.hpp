@@ -218,55 +218,7 @@ namespace SimpleWeb {
     /// If you reuse the io_service for other tasks, use the asynchronous request functions instead.
     /// When requesting Server-Sent Events: will throw on error::eof, please use asynchronous request functions instead.
     std::shared_ptr<Response> request(const std::string &method, const std::string &path = {"/"}, string_view content = {}, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
-      {
-        LockGuard lock(synchronous_request_mutex);
-        if(!synchronous_request_called) {
-          if(io_service) // Throw if io_service already set
-            throw make_error_code::make_error_code(errc::operation_not_permitted);
-          io_service = std::make_shared<io_context>();
-          internal_io_service = true;
-          auto io_service_ = io_service;
-          std::thread thread([io_service_] {
-            auto work = make_work_guard(*io_service_);
-            io_service_->run();
-          });
-          thread.detach();
-          synchronous_request_called = true;
-        }
-      }
-
-      std::shared_ptr<Response> response;
-      std::promise<std::shared_ptr<Response>> response_promise;
-      bool stop_future_handlers = false;
-      request(method, path, content, header, [&response, &response_promise, &stop_future_handlers](std::shared_ptr<Response> response_, error_code ec) {
-        if(stop_future_handlers)
-          return;
-
-        if(!response)
-          response = response_;
-        else if(!ec) {
-          if(response_->streambuf.size() + response->streambuf.size() > response->streambuf.max_size()) {
-            ec = make_error_code::make_error_code(errc::message_size);
-            response->close();
-          }
-          else {
-            // Move partial response_ content to response:
-            auto &source = response_->streambuf;
-            auto &target = response->streambuf;
-            target.commit(asio::buffer_copy(target.prepare(source.size()), source.data()));
-            source.consume(source.size());
-          }
-        }
-
-        if(ec) {
-          response_promise.set_exception(std::make_exception_ptr(system_error(ec)));
-          stop_future_handlers = true;
-        }
-        else if(response_->content.end)
-          response_promise.set_value(response);
-      });
-
-      return response_promise.get_future().get();
+      return sync_request(method, path, content, header);
     }
 
     /// Convenience function to perform synchronous request. The io_service is started in this function.
@@ -274,55 +226,7 @@ namespace SimpleWeb {
     /// If you reuse the io_service for other tasks, use the asynchronous request functions instead.
     /// When requesting Server-Sent Events: will throw on error::eof, please use asynchronous request functions instead.
     std::shared_ptr<Response> request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
-      {
-        LockGuard lock(synchronous_request_mutex);
-        if(!synchronous_request_called) {
-          if(io_service) // Throw if io_service already set
-            throw make_error_code::make_error_code(errc::operation_not_permitted);
-          io_service = std::make_shared<io_context>();
-          internal_io_service = true;
-          auto io_service_ = io_service;
-          std::thread thread([io_service_] {
-            auto work = make_work_guard(*io_service_);
-            io_service_->run();
-          });
-          thread.detach();
-          synchronous_request_called = 1;
-        }
-      }
-
-      std::shared_ptr<Response> response;
-      std::promise<std::shared_ptr<Response>> response_promise;
-      bool stop_future_handlers = false;
-      request(method, path, content, header, [&response, &response_promise, &stop_future_handlers](std::shared_ptr<Response> response_, error_code ec) {
-        if(stop_future_handlers)
-          return;
-
-        if(!response)
-          response = response_;
-        else if(!ec) {
-          if(response_->streambuf.size() + response->streambuf.size() > response->streambuf.max_size()) {
-            ec = make_error_code::make_error_code(errc::message_size);
-            response->close();
-          }
-          else {
-            // Move partial response_ content to response:
-            auto &source = response_->streambuf;
-            auto &target = response->streambuf;
-            target.commit(asio::buffer_copy(target.prepare(source.size()), source.data()));
-            source.consume(source.size());
-          }
-        }
-
-        if(ec) {
-          response_promise.set_exception(std::make_exception_ptr(system_error(ec)));
-          stop_future_handlers = true;
-        }
-        else if(response_->content.end)
-          response_promise.set_value(response);
-      });
-
-      return response_promise.get_future().get();
+      return sync_request(method, path, content, header);
     }
 
     /// Asynchronous request where running Client's io_service is required.
@@ -505,6 +409,59 @@ namespace SimpleWeb {
       auto parsed_host_port = parse_host_port(host_port, default_port);
       host = parsed_host_port.first;
       port = parsed_host_port.second;
+    }
+
+    template <typename ContentType>
+    std::shared_ptr<Response> sync_request(const std::string &method, const std::string &path, ContentType &content, const CaseInsensitiveMultimap &header) {
+      {
+        LockGuard lock(synchronous_request_mutex);
+        if(!synchronous_request_called) {
+          if(io_service) // Throw if io_service already set
+            throw make_error_code::make_error_code(errc::operation_not_permitted);
+          io_service = std::make_shared<io_context>();
+          internal_io_service = true;
+          auto io_service_ = io_service;
+          std::thread thread([io_service_] {
+            auto work = make_work_guard(*io_service_);
+            io_service_->run();
+          });
+          thread.detach();
+          synchronous_request_called = true;
+        }
+      }
+
+      std::shared_ptr<Response> response;
+      std::promise<std::shared_ptr<Response>> response_promise;
+      bool stop_future_handlers = false;
+      request(method, path, content, header, [&response, &response_promise, &stop_future_handlers](std::shared_ptr<Response> response_, error_code ec) {
+        if(stop_future_handlers)
+          return;
+
+        if(!response)
+          response = response_;
+        else if(!ec) {
+          if(response_->streambuf.size() + response->streambuf.size() > response->streambuf.max_size()) {
+            ec = make_error_code::make_error_code(errc::message_size);
+            response->close();
+          }
+          else {
+            // Move partial response_ content to response:
+            auto &source = response_->streambuf;
+            auto &target = response->streambuf;
+            target.commit(asio::buffer_copy(target.prepare(source.size()), source.data()));
+            source.consume(source.size());
+          }
+        }
+
+        if(ec) {
+          response_promise.set_exception(std::make_exception_ptr(system_error(ec)));
+          stop_future_handlers = true;
+        }
+        else if(response_->content.end)
+          response_promise.set_value(response);
+      });
+
+      return response_promise.get_future().get();
     }
 
     std::shared_ptr<Connection> get_connection() noexcept {
