@@ -142,7 +142,7 @@ namespace SimpleWeb {
       long timeout_connect = 0;
       /// Maximum size of response stream buffer. Defaults to architecture maximum.
       /// Reaching this limit will result in a message_size error code.
-      std::size_t max_response_streambuf_size = std::numeric_limits<std::size_t>::max();
+      std::size_t max_response_streambuf_size = (std::numeric_limits<std::size_t>::max)();
       /// Set proxy server (server:port)
       std::string proxy_server;
     };
