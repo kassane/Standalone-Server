@@ -591,7 +591,7 @@ namespace SimpleWeb {
 
             this->read_chunked_transfer_encoded(session, chunk_size_streambuf);
           }
-          else if(session->response->http_version < "1.1" || ((header_it = session->response->header.find("Session")) != session->response->header.end() && header_it->second == "close"))
+          else if(session->response->http_version < "1.1" || ((header_it = session->response->header.find("Connection")) != session->response->header.end() && header_it->second == "close"))
             read_content(session);
           else if(((header_it = session->response->header.find("Content-Type")) != session->response->header.end() && header_it->second == "text/event-stream")) {
             auto events_streambuf = std::make_shared<asio::streambuf>(this->config.max_response_streambuf_size);
