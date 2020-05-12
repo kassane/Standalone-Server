@@ -694,7 +694,7 @@ namespace SimpleWeb {
         if(!ec) {
           std::istream istream(chunk_size_streambuf.get());
           std::string line;
-          getline(istream, line);
+          std::getline(istream, line);
           bytes_transferred -= line.size() + 1;
           unsigned long chunk_size = 0;
           try {
@@ -736,6 +736,7 @@ namespace SimpleWeb {
                 std::istream istream(&session->response->streambuf);
 
                 // Remove "\r\n"
+                istream.seekg(2, std::ios::end);
                 istream.get();
                 istream.get();
 
