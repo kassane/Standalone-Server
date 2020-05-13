@@ -749,6 +749,21 @@ namespace SimpleWeb {
                 session->callback(ec);
             });
           }
+          else if(2 + chunk_size > num_additional_bytes) { // If only end of chunk remains unread (\n or \r\n)
+            // Remove "\r\n"
+            if(2 + chunk_size - num_additional_bytes == 1)
+              istream.get();
+            auto null_buffer = std::make_shared<asio::streambuf>(2);
+            asio::async_read(*session->connection->socket, *null_buffer, asio::transfer_exactly(2 + chunk_size - num_additional_bytes), [this, session, chunk_size_streambuf, null_buffer](const error_code &ec, size_t /*bytes_transferred*/) {
+              auto lock = session->connection->handler_runner->continue_lock();
+              if(!lock)
+                return;
+              if(!ec)
+                read_chunked_transfer_encoded(session, chunk_size_streambuf);
+              else
+                session->callback(ec);
+            });
+          }
           else {
             // Remove "\r\n"
             istream.get();
