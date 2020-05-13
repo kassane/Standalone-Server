@@ -734,7 +734,7 @@ namespace SimpleWeb {
 
               if(!ec) {
                 // Remove "\r\n"
-                auto null_buffer = std::make_shared<boost::asio::streambuf>(2);
+                auto null_buffer = std::make_shared<asio::streambuf>(2);
                 asio::async_read(*session->connection->socket, *null_buffer, asio::transfer_exactly(2), [this, session, chunk_size_streambuf, null_buffer](const error_code &ec, size_t /*bytes_transferred*/) {
                   auto lock = session->connection->handler_runner->continue_lock();
                   if(!lock)
