@@ -6,15 +6,6 @@ option(USE_STANDALONE_ASIO "set ON to use standalone Asio instead of Boost.Asio"
 option(BUILD_TESTING "set ON to build library tests" OFF)
 option(USE_OPENSSL "set OFF to build without OpenSSL" ON)
 
-if(NOT MSVC)
-    add_compile_options(-std=c++11 -Wall -Wextra)
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        add_compile_options(-Wthread-safety)
-    endif()
-else()
-    add_compile_options(/W1)
-endif()
-
 add_library(simple-web-server INTERFACE)
 
 target_include_directories(simple-web-server INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -61,6 +52,15 @@ endif()
 
 # If Simple-Web-Server is not a sub-project:
 if(CMAKE_SOURCE_DIR STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+    if(NOT MSVC)
+        add_compile_options(-std=c++11 -Wall -Wextra)
+        if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            add_compile_options(-Wthread-safety)
+        endif()
+    else()
+        add_compile_options(/W1)
+    endif()
+
     find_package(Boost 1.53.0 COMPONENTS system thread filesystem)
     if(Boost_FOUND)
         add_executable(http_examples http_examples.cpp)
