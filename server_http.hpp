@@ -389,7 +389,7 @@ namespace SimpleWeb {
       std::unique_lock<std::mutex> lock(start_stop_mutex);
 
       asio::ip::tcp::endpoint endpoint;
-      if(config.address.size() > 0)
+      if(!config.address.empty())
         endpoint = asio::ip::tcp::endpoint(make_address(config.address), config.port);
       else
         endpoint = asio::ip::tcp::endpoint(asio::ip::tcp::v6(), config.port);
@@ -403,13 +403,14 @@ namespace SimpleWeb {
         acceptor = std::unique_ptr<asio::ip::tcp::acceptor>(new asio::ip::tcp::acceptor(*io_service));
       try {
         acceptor->open(endpoint.protocol());
-      } catch (const system_error& error) {
+      }
+      catch(const system_error &error) {
         if(error.code() == asio::error::address_family_not_supported && config.address.empty()) {
           endpoint = asio::ip::tcp::endpoint(asio::ip::tcp::v4(), config.port);
           acceptor->open(endpoint.protocol());
-        } else {
-          throw;
         }
+        else
+          throw;
       }
       acceptor->set_option(asio::socket_base::reuse_address(config.reuse_address));
       if(config.fast_open) {
