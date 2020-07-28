@@ -241,6 +241,16 @@ namespace SimpleWeb {
         return asio::ip::tcp::endpoint();
       }
 
+      asio::ip::tcp::endpoint local_endpoint() const noexcept {
+        try {
+          if(auto connection = this->connection.lock())
+            return connection->socket->lowest_layer().local_endpoint();
+        }
+        catch(...) {
+        }
+        return asio::ip::tcp::endpoint();
+      }
+
       /// Deprecated, please use remote_endpoint().address().to_string() instead.
       DEPRECATED std::string remote_endpoint_address() const noexcept {
         try {
