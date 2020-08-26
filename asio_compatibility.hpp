@@ -68,9 +68,9 @@ namespace SimpleWeb {
   inline asio::ip::address make_address(const std::string &str) noexcept {
     return asio::ip::address::from_string(str);
   }
-  template <typename socket_type>
-  io_context &get_socket_executor(socket_type &socket) {
-    return socket.get_io_service();
+  template <typename socket_type, typename duration_type>
+  asio::steady_timer make_steady_timer(socket_type &socket, std::chrono::duration<duration_type> duration) {
+    return asio::steady_timer(socket.get_io_service(), duration);
   }
   template <typename handler_type>
   void async_resolve(asio::ip::tcp::resolver &resolver, const std::pair<std::string, std::string> &host_port, handler_type &&handler) {
