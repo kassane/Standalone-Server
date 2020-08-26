@@ -43,8 +43,8 @@ namespace SimpleWeb {
     return asio::ip::make_address(str);
   }
   template <typename socket_type, typename duration_type>
-  asio::steady_timer make_steady_timer(socket_type &socket, std::chrono::duration<duration_type> duration) {
-    return asio::steady_timer(socket.get_executor(), duration);
+  std::unique_ptr<asio::steady_timer> make_steady_timer(socket_type &socket, std::chrono::duration<duration_type> duration) {
+    return std::unique_ptr<asio::steady_timer>(new asio::steady_timer(socket.get_executor(), duration));
   }
   template <typename handler_type>
   void async_resolve(asio::ip::tcp::resolver &resolver, const std::pair<std::string, std::string> &host_port, handler_type &&handler) {
@@ -69,8 +69,8 @@ namespace SimpleWeb {
     return asio::ip::address::from_string(str);
   }
   template <typename socket_type, typename duration_type>
-  asio::steady_timer make_steady_timer(socket_type &socket, std::chrono::duration<duration_type> duration) {
-    return asio::steady_timer(socket.get_io_service(), duration);
+  std::unique_ptr<asio::steady_timer> make_steady_timer(socket_type &socket, std::chrono::duration<duration_type> duration) {
+    return std::unique_ptr<asio::steady_timer>(new asio::steady_timer(socket.get_io_service(), duration));
   }
   template <typename handler_type>
   void async_resolve(asio::ip::tcp::resolver &resolver, const std::pair<std::string, std::string> &host_port, handler_type &&handler) {
