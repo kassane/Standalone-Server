@@ -261,7 +261,7 @@ namespace SimpleWeb {
         std::size_t query_start = std::string::npos;
         std::size_t path_and_query_string_end = std::string::npos;
         for(std::size_t i = method_end + 1; i < line.size(); ++i) {
-          if(line[i] == '?' && (i + 1) < line.size())
+          if(line[i] == '?' && (i + 1) < line.size() && query_start == std::string::npos)
             query_start = i + 1;
           else if(line[i] == ' ') {
             path_and_query_string_end = i;
