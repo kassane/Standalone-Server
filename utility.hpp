@@ -145,14 +145,13 @@ namespace SimpleWeb {
           name_end_pos = std::string::npos;
           value_pos = std::string::npos;
         }
-        else if(query_string[c] == '=' && 
-                name_end_pos == std::string::npos) {
+        else if(query_string[c] == '=' && name_end_pos == std::string::npos) {
           name_end_pos = c;
           value_pos = c + 1;
         }
       }
       if(name_pos < query_string.size()) {
-        auto name = query_string.substr(name_pos, name_end_pos - name_pos);
+        auto name = query_string.substr(name_pos, (name_end_pos == std::string::npos ? std::string::npos : name_end_pos - name_pos));
         if(!name.empty()) {
           auto value = value_pos >= query_string.size() ? std::string() : query_string.substr(value_pos);
           result.emplace(std::move(name), Percent::decode(value));
