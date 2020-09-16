@@ -54,7 +54,8 @@ namespace SimpleWeb {
 namespace boost {
 #endif
   namespace asio {
-    template <> struct is_match_condition<SimpleWeb::HeaderEndMatch> : public std::true_type {};
+    template <>
+    struct is_match_condition<SimpleWeb::HeaderEndMatch> : public std::true_type {};
   } // namespace asio
 #ifndef USE_STANDALONE_ASIO
 } // namespace boost
