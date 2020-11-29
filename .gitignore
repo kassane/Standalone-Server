@@ -17,9 +17,9 @@ compile_commands.json
 # executables
 http_examples
 https_examples
-io_test
-parse_test
-crypto_test
+sws_io_test
+sws_parse_test
+sws_crypto_test
 status_code_test
 
 # Visual Studio 2015/2017 cache/options directory
