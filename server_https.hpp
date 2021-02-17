@@ -23,7 +23,7 @@ namespace SimpleWeb {
     /**
      * Constructs a server object.
      *
-     * @param certification_file If non-empty, sends the given certification file to client.
+     * @param certification_file Sends the given certification file to client.
      * @param private_key_file   Specifies the file containing the private key for certification_file.
      * @param verify_file        If non-empty, use this certificate authority file to perform verification of client's certificate and hostname according to RFC 2818.
      */
