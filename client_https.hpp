@@ -3,7 +3,7 @@
 
 #include "client_http.hpp"
 
-#ifdef USE_STANDALONE_ASIO
+#ifdef ASIO_STANDALONE
 #include <asio/ssl.hpp>
 #else
 #include <boost/asio/ssl.hpp>
