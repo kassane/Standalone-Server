@@ -500,22 +500,33 @@ namespace SimpleWeb {
     }
 
     std::pair<std::string, unsigned short> parse_host_port(const std::string &host_port, unsigned short default_port) const noexcept {
-      std::pair<std::string, unsigned short> parsed_host_port;
-      std::size_t host_end = host_port.find(':');
-      if(host_end == std::string::npos) {
-        parsed_host_port.first = host_port;
-        parsed_host_port.second = default_port;
+      std::string host, port;
+      host.reserve(host_port.size());
+      bool parse_port = false;
+      int square_count = 0; // To parse IPv6 addresses
+      for(auto chr : host_port) {
+        if(chr == '[')
+          ++square_count;
+        else if(chr == ']')
+          --square_count;
+        else if(square_count == 0 && chr == ':')
+          parse_port = true;
+        else if(!parse_port)
+          host += chr;
+        else
+          port += chr;
       }
+
+      if(port.empty())
+        return {std::move(host), default_port};
       else {
-        parsed_host_port.first = host_port.substr(0, host_end);
         try {
-          parsed_host_port.second = static_cast<unsigned short>(std::stoul(host_port.substr(host_end + 1)));
+          return {std::move(host), static_cast<unsigned short>(std::stoul(port))};
         }
         catch(...) {
-          parsed_host_port.second = default_port;
+          return {std::move(host), default_port};
         }
       }
-      return parsed_host_port;
     }
 
     virtual std::shared_ptr<Connection> create_connection() noexcept = 0;

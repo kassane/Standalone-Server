@@ -61,16 +61,6 @@ public:
 
   void connect(const std::shared_ptr<Session> &) noexcept override {}
 
-  void constructor_parse_test1() {
-    ASSERT(host == "test.org");
-    ASSERT(port == 8080);
-  }
-
-  void constructor_parse_test2() {
-    ASSERT(host == "test.org");
-    ASSERT(port == 80);
-  }
-
   void parse_response_header_test() {
     std::shared_ptr<Response> response(new Response(static_cast<size_t>(-1), nullptr));
 
@@ -151,13 +141,30 @@ int main() {
 
   serverTest->parse_request_test();
 
-  auto clientTest = make_shared<ClientTest>("test.org:8080");
-  clientTest->constructor_parse_test1();
+  {
+    ClientTest clientTest("test.org");
+    ASSERT(clientTest.host == "test.org");
+    ASSERT(clientTest.port == 80);
+    clientTest.parse_response_header_test();
+  }
 
-  auto clientTest2 = make_shared<ClientTest>("test.org");
-  clientTest2->constructor_parse_test2();
+  {
+    ClientTest clientTest("test.org:8080");
+    ASSERT(clientTest.host == "test.org");
+    ASSERT(clientTest.port == 8080);
+  }
 
-  clientTest2->parse_response_header_test();
+  {
+    ClientTest clientTest("[::1]");
+    ASSERT(clientTest.host == "::1");
+    ASSERT(clientTest.port == 80);
+  }
+
+  {
+    ClientTest clientTest("[::1]:8080");
+    ASSERT(clientTest.host == "::1");
+    ASSERT(clientTest.port == 8080);
+  }
 
 
   io_context io_service;
