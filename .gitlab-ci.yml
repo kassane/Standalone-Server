@@ -17,10 +17,6 @@ buster:
   image: "registry.gitlab.com/eidheim/docker-images:buster"
   <<: *compile_and_test
 
-jessie:
-  image: "registry.gitlab.com/eidheim/docker-images:jessie"
-  <<: *compile_and_test
-
 stretch:
   image: "registry.gitlab.com/eidheim/docker-images:stretch"
   <<: *compile_and_test
