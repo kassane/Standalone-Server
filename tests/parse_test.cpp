@@ -155,6 +155,12 @@ int main() {
   }
 
   {
+    ClientTest clientTest("test.org:test");
+    ASSERT(clientTest.host == "test.org");
+    ASSERT(clientTest.port == 80);
+  }
+
+  {
     ClientTest clientTest("[::1]");
     ASSERT(clientTest.host == "::1");
     ASSERT(clientTest.port == 80);
