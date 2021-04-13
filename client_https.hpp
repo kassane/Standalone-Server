@@ -26,7 +26,15 @@ namespace SimpleWeb {
      */
     Client(const std::string &server_port_path, bool verify_certificate = true, const std::string &certification_file = std::string(),
            const std::string &private_key_file = std::string(), const std::string &verify_file = std::string())
-        : ClientBase<HTTPS>::ClientBase(server_port_path, 443), context(asio::ssl::context::tlsv12) {
+        : ClientBase<HTTPS>::ClientBase(server_port_path, 443),
+#if(ASIO_STANDALONE && ASIO_VERSION >= 101300) || BOOST_ASIO_VERSION >= 101300
+          context(asio::ssl::context::tls_client) {
+      // Disabling TLS 1.0 and 1.1 (see RFC 8996)
+      context.set_options(asio::ssl::context::no_tlsv1);
+      context.set_options(asio::ssl::context::no_tlsv1_1);
+#else
+          context(asio::ssl::context::tlsv12) {
+#endif
       if(certification_file.size() > 0 && private_key_file.size() > 0) {
         context.use_certificate_chain_file(certification_file);
         context.use_private_key_file(private_key_file, asio::ssl::context::pem);
