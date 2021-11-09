@@ -538,13 +538,13 @@ namespace SimpleWeb {
     void read(const std::shared_ptr<Session> &session) {
       session->connection->set_timeout(config.timeout_request);
       asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, std::size_t bytes_transferred) {
-        session->connection->set_timeout(config.timeout_content);
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
         session->request->header_read_time = std::chrono::system_clock::now();
 
         if(!ec) {
+          session->connection->set_timeout(this->config.timeout_content);
           // request->streambuf.size() is not necessarily the same as bytes_transferred, from Boost-docs:
           // "After a successful async_read_until operation, the streambuf may contain additional data beyond the delimiter"
           // The chosen solution is to extract lines from the stream directly when parsing the header. What is left of the
