@@ -64,7 +64,9 @@ namespace SimpleWeb {
     void connect(const std::shared_ptr<Session> &session) override {
       if(!session->connection->socket->lowest_layer().is_open()) {
         auto resolver = std::make_shared<asio::ip::tcp::resolver>(*io_service);
+        session->connection->set_timeout(this->config.timeout_connect);
         async_resolve(*resolver, *host_port, [this, session, resolver](const error_code &ec, resolver_results results) {
+          session->connection->cancel_timeout();
           auto lock = session->connection->handler_runner->continue_lock();
           if(!lock)
             return;
