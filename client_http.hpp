@@ -675,8 +675,10 @@ namespace SimpleWeb {
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
-
+# define SSL_R_SHORT_READ                                 219
         auto ec = ec_ == error::eof ? error_code() : ec_;
+        if((ec.value() & 0xff) == SSL_R_SHORT_READ)
+           ec = error_code();
 
         if(!ec) {
           {
