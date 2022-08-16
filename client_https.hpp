@@ -57,6 +57,11 @@ namespace SimpleWeb {
   protected:
     asio::ssl::context context;
 
+    /// Ignore for end of file and SSL_R_SHORT_READ error codes
+    error_code clean_error_code(const error_code &ec) override {
+      return ec == error::eof || ec == asio::ssl::error::stream_truncated ? error_code() : ec;
+    }
+
     std::shared_ptr<Connection> create_connection() noexcept override {
       return std::make_shared<Connection>(handler_runner, *io_service, context);
     }
