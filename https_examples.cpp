@@ -222,12 +222,12 @@ int main() {
   {
     HttpsClient client("localhost:8080", false);
     try {
-      cout << "Example GET request to http://localhost:8080/match/123" << endl;
+      cout << "Example GET request to https://localhost:8080/match/123" << endl;
       auto r1 = client.request("GET", "/match/123");
       cout << "Response content: " << r1->content.rdbuf() << endl // Alternatively, use the convenience function r1->content.string()
            << endl;
 
-      cout << "Example POST request to http://localhost:8080/string" << endl;
+      cout << "Example POST request to https://localhost:8080/string" << endl;
       auto r2 = client.request("POST", "/string", json_string);
       cout << "Response content: " << r2->content.rdbuf() << endl
            << endl;
@@ -240,7 +240,7 @@ int main() {
   // Asynchronous request example
   {
     HttpsClient client("localhost:8080", false);
-    cout << "Example POST request to http://localhost:8080/json" << endl;
+    cout << "Example POST request to https://localhost:8080/json" << endl;
     client.request("POST", "/json", json_string, [](shared_ptr<HttpsClient::Response> response, const SimpleWeb::error_code &ec) {
       if(!ec)
         cout << "Response content: " << response->content.rdbuf() << endl;
