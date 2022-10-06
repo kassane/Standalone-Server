@@ -36,7 +36,7 @@ pages:
   script:
     - apk update && apk add doxygen
     - cd .. && doxygen docs/Doxyfile
-    - mv docs/doxygen_output/html/ public/
+    - mv doxygen_output/html/ public/
   artifacts:
     paths:
     - public
