@@ -76,49 +76,61 @@ namespace SimpleWeb {
       }
 
       void send_from_queue() REQUIRES(send_queue_mutex) {
+        auto buffer = send_queue.begin()->first->data();
         auto self = this->shared_from_this();
-        asio::async_write(*self->session->connection->socket, *send_queue.begin()->first, [self](const error_code &ec, std::size_t /*bytes_transferred*/) {
+        post(session->connection->read_write_strand, [self, buffer] {
           auto lock = self->session->connection->handler_runner->continue_lock();
           if(!lock)
             return;
-          {
-            LockGuard lock(self->send_queue_mutex);
-            if(!ec) {
-              auto it = self->send_queue.begin();
-              auto callback = std::move(it->second);
-              self->send_queue.erase(it);
-              if(self->send_queue.size() > 0)
-                self->send_from_queue();
+          asio::async_write(*self->session->connection->socket, buffer, [self](const error_code &ec, std::size_t /*bytes_transferred*/) {
+            auto lock = self->session->connection->handler_runner->continue_lock();
+            if(!lock)
+              return;
+            {
+              LockGuard lock(self->send_queue_mutex);
+              if(!ec) {
+                auto it = self->send_queue.begin();
+                auto callback = std::move(it->second);
+                self->send_queue.erase(it);
+                if(self->send_queue.size() > 0)
+                  self->send_from_queue();
 
-              lock.unlock();
-              if(callback)
-                callback(ec);
-            }
-            else {
-              // All handlers in the queue is called with ec:
-              std::vector<std::function<void(const error_code &)>> callbacks;
-              for(auto &pair : self->send_queue) {
-                if(pair.second)
-                  callbacks.emplace_back(std::move(pair.second));
+                lock.unlock();
+                if(callback)
+                  callback(ec);
               }
-              self->send_queue.clear();
+              else {
+                // All handlers in the queue is called with ec:
+                std::vector<std::function<void(const error_code &)>> callbacks;
+                for(auto &pair : self->send_queue) {
+                  if(pair.second)
+                    callbacks.emplace_back(std::move(pair.second));
+                }
+                self->send_queue.clear();
 
-              lock.unlock();
-              for(auto &callback : callbacks)
-                callback(ec);
+                lock.unlock();
+                for(auto &callback : callbacks)
+                  callback(ec);
+              }
             }
-          }
+          });
         });
       }
 
       void send_on_delete(const std::function<void(const error_code &)> &callback = nullptr) noexcept {
+        auto buffer = streambuf->data();
         auto self = this->shared_from_this(); // Keep Response instance alive through the following async_write
-        asio::async_write(*session->connection->socket, *streambuf, [self, callback](const error_code &ec, std::size_t /*bytes_transferred*/) {
+        post(session->connection->read_write_strand, [self, buffer, callback] {
           auto lock = self->session->connection->handler_runner->continue_lock();
           if(!lock)
             return;
-          if(callback)
-            callback(ec);
+          asio::async_write(*self->session->connection->socket, buffer, [self, callback](const error_code &ec, std::size_t /*bytes_transferred*/) {
+            auto lock = self->session->connection->handler_runner->continue_lock();
+            if(!lock)
+              return;
+            if(callback)
+              callback(ec);
+          });
         });
       }
 
@@ -286,11 +298,17 @@ namespace SimpleWeb {
     class Connection : public std::enable_shared_from_this<Connection> {
     public:
       template <typename... Args>
-      Connection(std::shared_ptr<ScopeRunner> handler_runner_, Args &&...args) noexcept : handler_runner(std::move(handler_runner_)), socket(new socket_type(std::forward<Args>(args)...)) {}
+      Connection(std::shared_ptr<ScopeRunner> handler_runner_, Args &&...args) noexcept : handler_runner(std::move(handler_runner_)), socket(new socket_type(std::forward<Args>(args)...)), read_write_strand(get_executor(socket->lowest_layer())) {}
 
       std::shared_ptr<ScopeRunner> handler_runner;
 
       std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
+
+      /**
+       * Needed for TLS communication where async_write could be called outside of the io_context runners.
+       * For more information see https://stackoverflow.com/a/12801042.
+       */
+      strand read_write_strand;
 
       std::unique_ptr<asio::steady_timer> timer;
 
