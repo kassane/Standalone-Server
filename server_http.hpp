@@ -78,7 +78,7 @@ namespace SimpleWeb {
       void send_from_queue() REQUIRES(send_queue_mutex) {
         auto buffer = send_queue.begin()->first->data();
         auto self = this->shared_from_this();
-        post(session->connection->read_write_strand, [self, buffer] {
+        post(session->connection->write_strand, [self, buffer] {
           auto lock = self->session->connection->handler_runner->continue_lock();
           if(!lock)
             return;
@@ -120,7 +120,7 @@ namespace SimpleWeb {
       void send_on_delete(const std::function<void(const error_code &)> &callback = nullptr) noexcept {
         auto buffer = streambuf->data();
         auto self = this->shared_from_this(); // Keep Response instance alive through the following async_write
-        post(session->connection->read_write_strand, [self, buffer, callback] {
+        post(session->connection->write_strand, [self, buffer, callback] {
           auto lock = self->session->connection->handler_runner->continue_lock();
           if(!lock)
             return;
@@ -298,7 +298,7 @@ namespace SimpleWeb {
     class Connection : public std::enable_shared_from_this<Connection> {
     public:
       template <typename... Args>
-      Connection(std::shared_ptr<ScopeRunner> handler_runner_, Args &&...args) noexcept : handler_runner(std::move(handler_runner_)), socket(new socket_type(std::forward<Args>(args)...)), read_write_strand(get_executor(socket->lowest_layer())) {}
+      Connection(std::shared_ptr<ScopeRunner> handler_runner_, Args &&...args) noexcept : handler_runner(std::move(handler_runner_)), socket(new socket_type(std::forward<Args>(args)...)), write_strand(get_executor(socket->lowest_layer())) {}
 
       std::shared_ptr<ScopeRunner> handler_runner;
 
@@ -308,7 +308,7 @@ namespace SimpleWeb {
        * Needed for TLS communication where async_write could be called outside of the io_context runners.
        * For more information see https://stackoverflow.com/a/12801042.
        */
-      strand read_write_strand;
+      strand write_strand;
 
       std::unique_ptr<asio::steady_timer> timer;
 
