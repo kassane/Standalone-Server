@@ -101,7 +101,7 @@ namespace SimpleWeb {
               }
               else {
                 // All handlers in the queue is called with ec:
-                std::vector<std::function<void(const error_code &)>> callbacks;
+                std::list<std::function<void(const error_code &)>> callbacks;
                 for(auto &pair : self->send_queue) {
                   if(pair.second)
                     callbacks.emplace_back(std::move(pair.second));
