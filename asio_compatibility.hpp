@@ -55,7 +55,7 @@ namespace SimpleWeb {
     return asio::make_work_guard(context);
   }
   template <typename socket_type>
-  inline asio::basic_socket<boost::asio::ip::tcp>::executor_type get_executor(socket_type &socket) {
+  inline asio::basic_socket<asio::ip::tcp>::executor_type get_executor(socket_type &socket) {
     return socket.get_executor();
   }
   template <typename execution_context, typename handler_type>
