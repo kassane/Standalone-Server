@@ -51,8 +51,7 @@ if(USE_OPENSSL)
 endif()
 if(OPENSSL_FOUND)
     target_compile_definitions(simple-web-server INTERFACE HAVE_OPENSSL)
-    target_link_libraries(simple-web-server INTERFACE ${OPENSSL_LIBRARIES})
-    target_include_directories(simple-web-server INTERFACE ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(simple-web-server INTERFACE OpenSSL::SSL OpenSSL::Crypto)
 endif()
 
 # If Simple-Web-Server is not a sub-project:
