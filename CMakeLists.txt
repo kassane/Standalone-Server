@@ -24,10 +24,20 @@ target_link_libraries(simple-web-server INTERFACE Threads::Threads)
 
 if(USE_STANDALONE_ASIO)
     target_compile_definitions(simple-web-server INTERFACE ASIO_STANDALONE)
-    find_path(ASIO_PATH asio.hpp)
-    if(NOT ASIO_PATH)
-        message(FATAL_ERROR "Standalone Asio not found")
+    # There is no canonical way to use Asio from CMake.
+    # In particular, Asio does not support CMake natively.
+    # However, Conan and Vcpkg do provide CMake support on their own.
+    # Prefer the CMake target and fall back to finding asio.hpp.
+    if(NOT TARGET asio::asio)
+        find_package(asio)
+    endif()
+    if(TARGET asio::asio)
+        target_link_libraries(simple-web-server INTERFACE asio::asio)
     else()
+        find_path(ASIO_PATH asio.hpp)
+        if(NOT ASIO_PATH)
+            message(FATAL_ERROR "Standalone Asio not found")
+        endif()
         target_include_directories(simple-web-server SYSTEM INTERFACE ${ASIO_PATH})
     endif()
 else()
