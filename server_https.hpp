@@ -29,7 +29,7 @@ namespace SimpleWeb {
      */
     Server(const std::string &certification_file, const std::string &private_key_file, const std::string &verify_file = std::string())
         : ServerBase<HTTPS>::ServerBase(443),
-#if(ASIO_STANDALONE && ASIO_VERSION >= 101300) || BOOST_ASIO_VERSION >= 101300
+#if(defined(ASIO_STANDALONE) && ASIO_VERSION >= 101300) || BOOST_ASIO_VERSION >= 101300
           context(asio::ssl::context::tls_server) {
       // Disabling TLS 1.0 and 1.1 (see RFC 8996)
       context.set_options(asio::ssl::context::no_tlsv1);
