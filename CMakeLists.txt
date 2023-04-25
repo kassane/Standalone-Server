@@ -71,7 +71,7 @@ endif()
 # If Simple-Web-Server is not a sub-project:
 if(CMAKE_SOURCE_DIR STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     if(NOT MSVC)
-        add_compile_options(-Wall -Wextra)
+        add_compile_options(-Wall -Wextra -Wsign-conversion)
         if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
             add_compile_options(-Wthread-safety)
         endif()
