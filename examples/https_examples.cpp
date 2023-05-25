@@ -3,22 +3,13 @@
 #include "client_https.hpp"
 #include "server_https.hpp"
 
-// Added for the json-example
-#define BOOST_SPIRIT_THREADSAFE
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
-
 // Added for the default_resource example
 #include <algorithm>
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <fstream>
 #include <vector>
 
 #include "crypto.hpp"
-
-using namespace std;
-// Added for the json-example:
-using namespace boost::property_tree;
 
 using HttpsServer = SimpleWeb::Server<SimpleWeb::HTTPS>;
 using HttpsClient = SimpleWeb::Client<SimpleWeb::HTTPS>;
@@ -33,12 +24,12 @@ int main() {
   // Add resources using path-regex and method-string, and an anonymous function
   // POST-example for the path /string, responds the posted string
   server.resource["^/string$"]["POST"] =
-      [](shared_ptr<HttpsServer::Response> response,
-         shared_ptr<HttpsServer::Request> request) {
+      [](std::shared_ptr<HttpsServer::Response> response,
+         std::shared_ptr<HttpsServer::Request> request) {
         // Retrieve string:
         auto content = request->content.string();
         // request->content.string() is a convenience function for:
-        // stringstream ss;
+        // std::stringstream ss;
         // ss << request->content.rdbuf();
         // auto content=ss.str();
 
@@ -58,45 +49,13 @@ int main() {
   //   "lastName": "Smith",
   //   "age": 25
   // }
-  server.resource["^/json$"]["POST"] =
-      [](shared_ptr<HttpsServer::Response> response,
-         shared_ptr<HttpsServer::Request> request) {
-        try {
-          ptree pt;
-          read_json(request->content, pt);
-
-          auto name =
-              pt.get<string>("firstName") + " " + pt.get<string>("lastName");
-
-          *response << "HTTP/1.1 200 OK\r\n"
-                    << "Content-Length: " << name.length() << "\r\n\r\n"
-                    << name;
-        } catch (const exception &e) {
-          *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: "
-                    << strlen(e.what()) << "\r\n\r\n"
-                    << e.what();
-        }
-
-        // Alternatively, using a convenience function:
-        // try {
-        //     ptree pt;
-        //     read_json(request->content, pt);
-
-        //     auto name=pt.get<string>("firstName")+"
-        //     "+pt.get<string>("lastName"); response->write(name);
-        // }
-        // catch(const exception &e) {
-        //     response->write(SimpleWeb::StatusCode::client_error_bad_request,
-        //     e.what());
-        // }
-      };
 
   // GET-example for the path /info
   // Responds with request-information
   server.resource["^/info$"]["GET"] =
-      [](shared_ptr<HttpsServer::Response> response,
-         shared_ptr<HttpsServer::Request> request) {
-        stringstream stream;
+      [](std::shared_ptr<HttpsServer::Response> response,
+         std::shared_ptr<HttpsServer::Request> request) {
+        std::stringstream stream;
         stream << "<h1>Request from "
                << request->remote_endpoint().address().to_string() << ":"
                << request->remote_endpoint().port() << "</h1>";
@@ -119,17 +78,17 @@ int main() {
   // GET-example for the path /match/[number], responds with the matched string
   // in path (number) For instance a request GET /match/123 will receive: 123
   server.resource["^/match/([0-9]+)$"]["GET"] =
-      [](shared_ptr<HttpsServer::Response> response,
-         shared_ptr<HttpsServer::Request> request) {
+      [](std::shared_ptr<HttpsServer::Response> response,
+         std::shared_ptr<HttpsServer::Request> request) {
         response->write(request->path_match[1].str());
       };
 
   // GET-example simulating heavy work in a separate thread
   server.resource["^/work$"]["GET"] =
-      [](shared_ptr<HttpsServer::Response> response,
-         shared_ptr<HttpsServer::Request> /*request*/) {
-        thread work_thread([response] {
-          this_thread::sleep_for(chrono::seconds(5));
+      [](std::shared_ptr<HttpsServer::Response> response,
+         std::shared_ptr<HttpsServer::Request> /*request*/) {
+        std::thread work_thread([response] {
+          std::this_thread::sleep_for(std::chrono::seconds(5));
           response->write("Work done");
         });
         work_thread.detach();
@@ -140,17 +99,17 @@ int main() {
   // subdirectories. Default file: index.html Can for instance be used to
   // retrieve an HTML 5 client that uses REST-resources on this server
   server
-      .default_resource["GET"] = [](shared_ptr<HttpsServer::Response> response,
-                                    shared_ptr<HttpsServer::Request> request) {
+      .default_resource["GET"] = [](std::shared_ptr<HttpsServer::Response> response,
+                                    std::shared_ptr<HttpsServer::Request> request) {
     try {
-      auto web_root_path = boost::filesystem::canonical("web");
-      auto path = boost::filesystem::canonical(web_root_path / request->path);
+      auto web_root_path = std::filesystem::canonical("web");
+      auto path = std::filesystem::canonical(web_root_path / request->path);
       // Check if path is within web_root_path
-      if (distance(web_root_path.begin(), web_root_path.end()) >
-              distance(path.begin(), path.end()) ||
-          !equal(web_root_path.begin(), web_root_path.end(), path.begin()))
-        throw invalid_argument("path must be within root path");
-      if (boost::filesystem::is_directory(path)) path /= "index.html";
+      if (std::distance(web_root_path.begin(), web_root_path.end()) >
+              std::distance(path.begin(), path.end()) ||
+          !std::equal(web_root_path.begin(), web_root_path.end(), path.begin()))
+        throw std::invalid_argument("path must be within root path");
+      if (std::filesystem::is_directory(path)) path /= "index.html";
 
       SimpleWeb::CaseInsensitiveMultimap header;
 
@@ -175,18 +134,18 @@ int main() {
 //        }
 //      }
 //      else
-//        throw invalid_argument("could not read file");
+//        throw std::invalid_argument("could not read file");
 //    }
 #endif
 
-      auto ifs = make_shared<ifstream>();
-      ifs->open(path.string(), ifstream::in | ios::binary | ios::ate);
+      auto ifs = std::make_shared<std::ifstream>();
+      ifs->open(path.string(), std::ifstream::in | std::ios::binary | std::ios::ate);
 
       if (*ifs) {
         auto length = ifs->tellg();
-        ifs->seekg(0, ios::beg);
+        ifs->seekg(0, std::ios::beg);
 
-        header.emplace("Content-Length", to_string(length));
+        header.emplace("Content-Length", std::to_string(length));
         response->write(header);
 
         // Trick to define a recursive function within this scope (for example
@@ -194,23 +153,23 @@ int main() {
         class FileServer {
          public:
           static void read_and_send(
-              const shared_ptr<HttpsServer::Response> &response,
-              const shared_ptr<ifstream> &ifs) {
+              const std::shared_ptr<HttpsServer::Response> &response,
+              const std::shared_ptr<std::ifstream> &ifs) {
             // Read and send 128 KB at a time
-            static vector<char> buffer(
+            static std::vector<char> buffer(
                 131072);  // Safe when server is running on one thread
-            streamsize read_length;
+            std::streamsize read_length;
             if ((read_length = ifs->read(&buffer[0],
-                                         static_cast<streamsize>(buffer.size()))
+                                         static_cast<std::streamsize>(buffer.size()))
                                    .gcount()) > 0) {
               response->write(&buffer[0], read_length);
-              if (read_length == static_cast<streamsize>(buffer.size())) {
+              if (read_length == static_cast<std::streamsize>(buffer.size())) {
                 response->send(
                     [response, ifs](const SimpleWeb::error_code &ec) {
                       if (!ec)
                         read_and_send(response, ifs);
                       else
-                        cerr << "Connection interrupted" << endl;
+                        std::cerr << "Connection interrupted" << std::endl;
                     });
               }
             }
@@ -218,14 +177,14 @@ int main() {
         };
         FileServer::read_and_send(response, ifs);
       } else
-        throw invalid_argument("could not read file");
-    } catch (const exception &e) {
+        throw std::invalid_argument("could not read file");
+    } catch (const std::exception &e) {
       response->write(SimpleWeb::StatusCode::client_error_bad_request,
                       "Could not open path " + request->path + ": " + e.what());
     }
   };
 
-  server.on_error = [](shared_ptr<HttpsServer::Request> /*request*/,
+  server.on_error = [](std::shared_ptr<HttpsServer::Request> /*request*/,
                        const SimpleWeb::error_code & /*ec*/) {
     // Handle errors here
     // Note that connection timeouts will also call this handle with ec set to
@@ -234,48 +193,48 @@ int main() {
 
   // Start server and receive assigned port when server is listening for
   // requests
-  promise<unsigned short> server_port;
-  thread server_thread([&server, &server_port]() {
+  std::promise<unsigned short> server_port;
+  std::thread server_thread([&server, &server_port]() {
     // Start server
     server.start(
         [&server_port](unsigned short port) { server_port.set_value(port); });
   });
-  cout << "Server listening on port " << server_port.get_future().get() << endl
-       << endl;
+  std::cout << "Server listening on port " << server_port.get_future().get() << std::endl
+       << std::endl;
 
   // Client examples
-  string json_string =
+  std::string json_string =
       "{\"firstName\": \"John\",\"lastName\": \"Smith\",\"age\": 25}";
 
   // Synchronous request examples
   {
     HttpsClient client("localhost:8080", false);
     try {
-      cout << "Example GET request to https://localhost:8080/match/123" << endl;
+      std::cout << "Example GET request to https://localhost:8080/match/123" << std::endl;
       auto r1 = client.request("GET", "/match/123");
-      cout << "Response content: " << r1->content.rdbuf()
-           << endl  // Alternatively, use the convenience function
+      std::cout << "Response content: " << r1->content.rdbuf()
+           << std::endl  // Alternatively, use the convenience function
                     // r1->content.string()
-           << endl;
+           << std::endl;
 
-      cout << "Example POST request to https://localhost:8080/string" << endl;
+      std::cout << "Example POST request to https://localhost:8080/string" << std::endl;
       auto r2 = client.request("POST", "/string", json_string);
-      cout << "Response content: " << r2->content.rdbuf() << endl << endl;
+      std::cout << "Response content: " << r2->content.rdbuf() << std::endl << std::endl;
     } catch (const SimpleWeb::system_error &e) {
-      cerr << "Client request error: " << e.what() << endl;
+      std::cerr << "Client request error: " << e.what() << std::endl;
     }
   }
 
   // Asynchronous request example
   {
     HttpsClient client("localhost:8080", false);
-    cout << "Example POST request to https://localhost:8080/json" << endl;
+    std::cout << "Example POST request to https://localhost:8080/json" << std::endl;
     client.request("POST", "/json", json_string,
-                   [](shared_ptr<HttpsClient::Response> response,
+                   [](std::shared_ptr<HttpsClient::Response> response,
                       const SimpleWeb::error_code &ec) {
                      if (!ec)
-                       cout << "Response content: " << response->content.rdbuf()
-                            << endl;
+                       std::cout << "Response content: " << response->content.rdbuf()
+                            << std::endl;
                    });
     client.io_service->run();
   }

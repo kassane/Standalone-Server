@@ -16,7 +16,7 @@ jobs:
           fetch-depth: 0
       - uses: goto-bus-stop/setup-zig@v2
         with:
-          version: master
+          version: 0.11.0-dev.3258+7621e5693
       
       - name: Build Summary
         run: zig build -DTests -fsummary -freference-trace

@@ -4,7 +4,6 @@
 #include "client_http.hpp"
 #include "server_http.hpp"
 
-using namespace std;
 using namespace SimpleWeb;
 
 class ServerTest : public ServerBase<HTTP> {
