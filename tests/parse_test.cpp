@@ -1,19 +1,21 @@
+#include <iostream>
+
 #include "assert.hpp"
 #include "client_http.hpp"
 #include "server_http.hpp"
-#include <iostream>
 
 using namespace std;
 using namespace SimpleWeb;
 
 class ServerTest : public ServerBase<HTTP> {
-public:
+ public:
   ServerTest() : ServerBase<HTTP>::ServerBase(8080) {}
 
   void accept() noexcept override {}
 
   void parse_request_test() {
-    auto session = std::make_shared<Session>(static_cast<size_t>(-1), create_connection(*io_service));
+    auto session = std::make_shared<Session>(static_cast<size_t>(-1),
+                                             create_connection(*io_service));
 
     std::ostream stream(&session->request->content.streambuf);
     stream << "GET /test/ HTTP/1.1\r\n";
@@ -23,8 +25,10 @@ public:
     stream << "TestHeader3:test3b\r\n";
     stream << "\r\n";
 
-    ASSERT(RequestMessage::parse(session->request->content, session->request->method, session->request->path,
-                                 session->request->query_string, session->request->http_version, session->request->header));
+    ASSERT(RequestMessage::parse(
+        session->request->content, session->request->method,
+        session->request->path, session->request->query_string,
+        session->request->http_version, session->request->header));
 
     ASSERT(session->request->method == "GET");
     ASSERT(session->request->path == "/test/");
@@ -32,28 +36,34 @@ public:
 
     ASSERT(session->request->header.size() == 4);
     auto header_it = session->request->header.find("TestHeader");
-    ASSERT(header_it != session->request->header.end() && header_it->second == "test");
+    ASSERT(header_it != session->request->header.end() &&
+           header_it->second == "test");
     header_it = session->request->header.find("TestHeader2");
-    ASSERT(header_it != session->request->header.end() && header_it->second == "test2");
+    ASSERT(header_it != session->request->header.end() &&
+           header_it->second == "test2");
 
     header_it = session->request->header.find("testheader");
-    ASSERT(header_it != session->request->header.end() && header_it->second == "test");
+    ASSERT(header_it != session->request->header.end() &&
+           header_it->second == "test");
     header_it = session->request->header.find("testheader2");
-    ASSERT(header_it != session->request->header.end() && header_it->second == "test2");
+    ASSERT(header_it != session->request->header.end() &&
+           header_it->second == "test2");
 
     auto range = session->request->header.equal_range("testheader3");
     auto first = range.first;
     auto second = first;
     ++second;
-    ASSERT(range.first != session->request->header.end() && range.second != session->request->header.end() &&
+    ASSERT(range.first != session->request->header.end() &&
+           range.second != session->request->header.end() &&
            ((first->second == "test3a" && second->second == "test3b") ||
             (first->second == "test3b" && second->second == "test3a")));
   }
 };
 
 class ClientTest : public ClientBase<HTTP> {
-public:
-  ClientTest(const std::string &server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
+ public:
+  ClientTest(const std::string &server_port_path)
+      : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
 
   std::shared_ptr<Connection> create_connection() noexcept override {
     return nullptr;
@@ -62,7 +72,8 @@ public:
   void connect(const std::shared_ptr<Session> &) noexcept override {}
 
   void parse_response_header_test() {
-    std::shared_ptr<Response> response(new Response(static_cast<size_t>(-1), nullptr));
+    std::shared_ptr<Response> response(
+        new Response(static_cast<size_t>(-1), nullptr));
 
     ostream stream(&response->streambuf);
     stream << "HTTP/1.1 200 OK\r\n";
@@ -75,7 +86,8 @@ public:
     stream << "TestHeader6:  \r\n";
     stream << "\r\n";
 
-    ASSERT(ResponseMessage::parse(response->content, response->http_version, response->status_code, response->header));
+    ASSERT(ResponseMessage::parse(response->content, response->http_version,
+                                  response->status_code, response->header));
 
     ASSERT(response->http_version == "1.1");
     ASSERT(response->status_code == "200 OK");
@@ -95,7 +107,8 @@ public:
     auto first = range.first;
     auto second = first;
     ++second;
-    ASSERT(range.first != response->header.end() && range.second != response->header.end() &&
+    ASSERT(range.first != response->header.end() &&
+           range.second != response->header.end() &&
            ((first->second == "test3a" && second->second == "test3b") ||
             (first->second == "test3b" && second->second == "test3a")));
 
@@ -122,16 +135,24 @@ int main() {
   ASSERT(hash("test") != hash("tset"));
 
   auto percent_decoded = "testing æøå !#$&'()*+,/:;=?@[]123-._~\r\n";
-  auto percent_encoded = "testing%20%C3%A6%C3%B8%C3%A5%20%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D123-._~%0D%0A";
+  auto percent_encoded =
+      "testing%20%C3%A6%C3%B8%C3%A5%20%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%"
+      "3D%3F%40%5B%5D123-._~%0D%0A";
   ASSERT(Percent::encode(percent_decoded) == percent_encoded);
   ASSERT(Percent::decode(percent_encoded) == percent_decoded);
   ASSERT(Percent::decode(Percent::encode(percent_decoded)) == percent_decoded);
 
-  SimpleWeb::CaseInsensitiveMultimap fields = {{"test1", "æøå"}, {"test2", "!#$&'()*+,/:;=?@[]"}};
-  auto query_string1 = "test1=%C3%A6%C3%B8%C3%A5&test2=%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D";
-  auto query_string2 = "test2=%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D&test1=%C3%A6%C3%B8%C3%A5";
+  SimpleWeb::CaseInsensitiveMultimap fields = {{"test1", "æøå"},
+                                               {"test2", "!#$&'()*+,/:;=?@[]"}};
+  auto query_string1 =
+      "test1=%C3%A6%C3%B8%C3%A5&test2=%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%"
+      "3D%3F%40%5B%5D";
+  auto query_string2 =
+      "test2=%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D&test1=%C3%"
+      "A6%C3%B8%C3%A5";
   auto query_string_result = QueryString::create(fields);
-  ASSERT(query_string_result == query_string1 || query_string_result == query_string2);
+  ASSERT(query_string_result == query_string1 ||
+         query_string_result == query_string2);
   auto fields_result1 = QueryString::parse(query_string1);
   auto fields_result2 = QueryString::parse(query_string2);
   ASSERT(fields_result1 == fields_result2 && fields_result1 == fields);
@@ -171,7 +192,6 @@ int main() {
     ASSERT(clientTest.host == "::1");
     ASSERT(clientTest.port == 8080);
   }
-
 
   io_context io_service;
   asio::ip::tcp::socket socket(io_service);
@@ -223,19 +243,22 @@ int main() {
     ASSERT(parsed == solution);
   }
   {
-    SimpleWeb::CaseInsensitiveMultimap solution = {{"Content-Type", "application/json"}};
+    SimpleWeb::CaseInsensitiveMultimap solution = {
+        {"Content-Type", "application/json"}};
     std::stringstream header("Content-Type: application/json");
     auto parsed = SimpleWeb::HttpHeader::parse(header);
     ASSERT(parsed == solution);
   }
   {
-    SimpleWeb::CaseInsensitiveMultimap solution = {{"Content-Type", "application/json"}};
+    SimpleWeb::CaseInsensitiveMultimap solution = {
+        {"Content-Type", "application/json"}};
     std::stringstream header("Content-Type: application/json\r");
     auto parsed = SimpleWeb::HttpHeader::parse(header);
     ASSERT(parsed == solution);
   }
   {
-    SimpleWeb::CaseInsensitiveMultimap solution = {{"Content-Type", "application/json"}};
+    SimpleWeb::CaseInsensitiveMultimap solution = {
+        {"Content-Type", "application/json"}};
     std::stringstream header("Content-Type: application/json\r\n");
     auto parsed = SimpleWeb::HttpHeader::parse(header);
     ASSERT(parsed == solution);
@@ -244,98 +267,129 @@ int main() {
   {
     {
       SimpleWeb::CaseInsensitiveMultimap solution;
-      auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("");
+      auto parsed = SimpleWeb::HttpHeader::FieldValue::
+          SemicolonSeparatedAttributes::parse("");
       ASSERT(parsed == solution);
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"a", ""}};
-      auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("a");
+      auto parsed = SimpleWeb::HttpHeader::FieldValue::
+          SemicolonSeparatedAttributes::parse("a");
       ASSERT(parsed == solution);
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"a", ""}, {"b", ""}};
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("a; b");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::
+            SemicolonSeparatedAttributes::parse("a; b");
         ASSERT(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("a;b");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::
+            SemicolonSeparatedAttributes::parse("a;b");
         ASSERT(parsed == solution);
       }
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"a", ""}, {"b", "c"}};
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("a; b=c");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::
+            SemicolonSeparatedAttributes::parse("a; b=c");
         ASSERT(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("a;b=c");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::
+            SemicolonSeparatedAttributes::parse("a;b=c");
         ASSERT(parsed == solution);
       }
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}};
-      auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data");
+      auto parsed = SimpleWeb::HttpHeader::FieldValue::
+          SemicolonSeparatedAttributes::parse("form-data");
       ASSERT(parsed == solution);
     }
     {
-      SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}, {"test", ""}};
+      SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""},
+                                                     {"test", ""}};
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; test");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::
+            SemicolonSeparatedAttributes::parse("form-data; test");
         ASSERT(parsed == solution);
       }
     }
     {
-      SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}, {"name", "file"}};
+      SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""},
+                                                     {"name", "file"}};
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=\"file\"");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::
+            SemicolonSeparatedAttributes::parse("form-data; name=\"file\"");
         ASSERT(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=file");
-        ASSERT(parsed == solution);
-      }
-    }
-    {
-      SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}, {"name", "file"}, {"filename", "filename.png"}};
-      {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=\"file\"; filename=\"filename.png\"");
-        ASSERT(parsed == solution);
-      }
-      {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data;name=\"file\";filename=\"filename.png\"");
-        ASSERT(parsed == solution);
-      }
-      {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=file; filename=filename.png");
-        ASSERT(parsed == solution);
-      }
-      {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data;name=file;filename=filename.png");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::
+            SemicolonSeparatedAttributes::parse("form-data; name=file");
         ASSERT(parsed == solution);
       }
     }
     {
-      SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}, {"name", "fi le"}, {"filename", "file name.png"}};
+      SimpleWeb::CaseInsensitiveMultimap solution = {
+          {"form-data", ""}, {"name", "file"}, {"filename", "filename.png"}};
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=\"fi le\"; filename=\"file name.png\"");
+        auto parsed =
+            SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::
+                parse("form-data; name=\"file\"; filename=\"filename.png\"");
         ASSERT(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=\"fi%20le\"; filename=\"file%20name.png\"");
+        auto parsed =
+            SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::
+                parse("form-data;name=\"file\";filename=\"filename.png\"");
         ASSERT(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=fi le; filename=file name.png");
+        auto parsed =
+            SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::
+                parse("form-data; name=file; filename=filename.png");
         ASSERT(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=fi%20le; filename=file%20name.png");
+        auto parsed =
+            SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::
+                parse("form-data;name=file;filename=filename.png");
+        ASSERT(parsed == solution);
+      }
+    }
+    {
+      SimpleWeb::CaseInsensitiveMultimap solution = {
+          {"form-data", ""}, {"name", "fi le"}, {"filename", "file name.png"}};
+      {
+        auto parsed =
+            SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::
+                parse("form-data; name=\"fi le\"; filename=\"file name.png\"");
+        ASSERT(parsed == solution);
+      }
+      {
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::
+            SemicolonSeparatedAttributes::parse(
+                "form-data; name=\"fi%20le\"; filename=\"file%20name.png\"");
+        ASSERT(parsed == solution);
+      }
+      {
+        auto parsed =
+            SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::
+                parse("form-data; name=fi le; filename=file name.png");
+        ASSERT(parsed == solution);
+      }
+      {
+        auto parsed =
+            SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::
+                parse("form-data; name=fi%20le; filename=file%20name.png");
         ASSERT(parsed == solution);
       }
     }
   }
 
-  ASSERT(SimpleWeb::Date::to_string(std::chrono::system_clock::now()).size() == 29);
+  ASSERT(SimpleWeb::Date::to_string(std::chrono::system_clock::now()).size() ==
+         29);
 }

@@ -28,3 +28,6 @@ status_code_test
 .vs
 
 doxygen_output
+
+zig-cache
+zig-out

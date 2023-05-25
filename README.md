@@ -2,8 +2,6 @@
 
 A very simple, fast, multithreaded, platform independent HTTP and HTTPS server and client library implemented using C++11 and Asio (both Boost.Asio and standalone Asio can be used). Created to be an easy way to make REST resources available from C++ applications. 
 
-See https://gitlab.com/eidheim/Simple-WebSocket-Server for an easy way to make WebSocket/WebSocket Secure endpoints in C++. Also, feel free to check out the new C++ IDE supporting C++11/14/17: https://gitlab.com/cppit/jucipp. 
-
 ## Features
 
 * Asynchronous request handling
@@ -17,12 +15,12 @@ See https://gitlab.com/eidheim/Simple-WebSocket-Server for an easy way to make W
 * Sending outgoing messages is thread safe
 * Client creates necessary connections and perform reconnects when needed
 
-See also [benchmarks](https://gitlab.com/eidheim/Simple-Web-Server/blob/master/docs/benchmarks.md) for a performance comparisons to a few other HTTP libraries.
+See also [benchmarks](https://github.com/kassane/Standalone-Server/blob/master/docs/benchmarks.md) for a performance comparisons to a few other HTTP libraries.
 
 ## Usage
 
-See [http_examples.cpp](https://gitlab.com/eidheim/Simple-Web-Server/blob/master/http_examples.cpp) or
-[https_examples.cpp](https://gitlab.com/eidheim/Simple-Web-Server/blob/master/https_examples.cpp) for example usage.
+See [http_examples.cpp](https://github.com/kassane/Standalone-Server/blob/master/http_examples.cpp) or
+[https_examples.cpp](https://github.com/kassane/Standalone-Server/blob/master/https_examples.cpp) for example usage.
 The following server resources are setup using regular expressions to match request paths:
 * `POST /string` - responds with the posted string.
 * `POST /json` - parses the request content as JSON, and responds with some of the parsed values.
@@ -37,7 +35,6 @@ This resource responds with the content of files in the `web/`-folder if the req
 ## Dependencies
 
 * Boost.Asio or standalone Asio
-* Boost is required to compile the examples
 * For HTTPS: OpenSSL libraries
 
 Installation instructions for the dependencies needed to compile the examples on a selection of platforms can be seen below.
@@ -46,32 +43,34 @@ Default build with Boost.Asio is assumed. Turn on CMake option `USE_STANDALONE_A
 ### Debian based distributions
 
 ```sh
-sudo apt-get install libssl-dev libboost-filesystem-dev libboost-thread-dev
+sudo apt-get install libssl-dev
 ```
 
 ### Arch Linux based distributions
 
 ```sh
-sudo pacman -S boost
+sudo pacman -S asio openssl
 ```
 
 ### MacOS
 
 ```sh
-brew install openssl boost
+brew install openssl
 ```
 
 ## Compile and run
 
-Compile with a C++11 compliant compiler:
+
+Choose **Release_Type** = (ReleaseSafe|ReleaseFast|ReleaseSmall)
+
+Compile with a C++17 compliant compiler (like `zig c++` eql to `clang++ -stdlib=libc++ -fuse-ld=lld`):
 ```sh
-cmake -H. -Bbuild
-cmake --build build
+zig build -Doptimize={Release_type}
 ```
 
 ### HTTP
 
-Run the server and client examples: `./build/http_examples`
+Run the server and client examples: `zig build run -Doptimize=ReleaseSafe`
 
 Direct your favorite browser to for instance http://localhost:8080/
 

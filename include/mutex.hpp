@@ -8,20 +8,16 @@
 #if defined(__clang__) && (!defined(SWIG))
 #define THREAD_ANNOTATION_ATTRIBUTE__(x) __attribute__((x))
 #else
-#define THREAD_ANNOTATION_ATTRIBUTE__(x) // no-op
+#define THREAD_ANNOTATION_ATTRIBUTE__(x)  // no-op
 #endif
 
-#define CAPABILITY(x) \
-  THREAD_ANNOTATION_ATTRIBUTE__(capability(x))
+#define CAPABILITY(x) THREAD_ANNOTATION_ATTRIBUTE__(capability(x))
 
-#define SCOPED_CAPABILITY \
-  THREAD_ANNOTATION_ATTRIBUTE__(scoped_lockable)
+#define SCOPED_CAPABILITY THREAD_ANNOTATION_ATTRIBUTE__(scoped_lockable)
 
-#define GUARDED_BY(x) \
-  THREAD_ANNOTATION_ATTRIBUTE__(guarded_by(x))
+#define GUARDED_BY(x) THREAD_ANNOTATION_ATTRIBUTE__(guarded_by(x))
 
-#define PT_GUARDED_BY(x) \
-  THREAD_ANNOTATION_ATTRIBUTE__(pt_guarded_by(x))
+#define PT_GUARDED_BY(x) THREAD_ANNOTATION_ATTRIBUTE__(pt_guarded_by(x))
 
 #define ACQUIRED_BEFORE(...) \
   THREAD_ANNOTATION_ATTRIBUTE__(acquired_before(__VA_ARGS__))
@@ -53,55 +49,45 @@
 #define TRY_ACQUIRE_SHARED(...) \
   THREAD_ANNOTATION_ATTRIBUTE__(try_acquire_shared_capability(__VA_ARGS__))
 
-#define EXCLUDES(...) \
-  THREAD_ANNOTATION_ATTRIBUTE__(locks_excluded(__VA_ARGS__))
+#define EXCLUDES(...) THREAD_ANNOTATION_ATTRIBUTE__(locks_excluded(__VA_ARGS__))
 
-#define ASSERT_CAPABILITY(x) \
-  THREAD_ANNOTATION_ATTRIBUTE__(assert_capability(x))
+#define ASSERT_CAPABILITY(x) THREAD_ANNOTATION_ATTRIBUTE__(assert_capability(x))
 
 #define ASSERT_SHARED_CAPABILITY(x) \
   THREAD_ANNOTATION_ATTRIBUTE__(assert_shared_capability(x))
 
-#define RETURN_CAPABILITY(x) \
-  THREAD_ANNOTATION_ATTRIBUTE__(lock_returned(x))
+#define RETURN_CAPABILITY(x) THREAD_ANNOTATION_ATTRIBUTE__(lock_returned(x))
 
 #define NO_THREAD_SAFETY_ANALYSIS \
   THREAD_ANNOTATION_ATTRIBUTE__(no_thread_safety_analysis)
 
 namespace SimpleWeb {
-  /// Mutex class that is annotated for Clang Thread Safety Analysis.
-  class CAPABILITY("mutex") Mutex {
-    std::mutex mutex;
+/// Mutex class that is annotated for Clang Thread Safety Analysis.
+class CAPABILITY("mutex") Mutex {
+  std::mutex mutex;
 
-  public:
-    void lock() ACQUIRE() {
-      mutex.lock();
-    }
+ public:
+  void lock() ACQUIRE() { mutex.lock(); }
 
-    void unlock() RELEASE() {
-      mutex.unlock();
-    }
-  };
+  void unlock() RELEASE() { mutex.unlock(); }
+};
 
-  /// Scoped mutex guard class that is annotated for Clang Thread Safety Analysis.
-  class SCOPED_CAPABILITY LockGuard {
-    Mutex &mutex;
-    bool locked = true;
+/// Scoped mutex guard class that is annotated for Clang Thread Safety Analysis.
+class SCOPED_CAPABILITY LockGuard {
+  Mutex &mutex;
+  bool locked = true;
 
-  public:
-    LockGuard(Mutex &mutex_) ACQUIRE(mutex_) : mutex(mutex_) {
-      mutex.lock();
-    }
-    void unlock() RELEASE() {
-      mutex.unlock();
-      locked = false;
-    }
-    ~LockGuard() RELEASE() {
-      if(locked)
-        mutex.unlock();
-    }
-  };
+ public:
+  LockGuard(Mutex &mutex_) ACQUIRE(mutex_) : mutex(mutex_) { mutex.lock(); }
+  void unlock() RELEASE() {
+    mutex.unlock();
+    locked = false;
+  }
+  ~LockGuard() RELEASE() {
+    if (locked) mutex.unlock();
+  }
+};
 
-} // namespace SimpleWeb
+}  // namespace SimpleWeb
 
-#endif // SIMPLE_WEB_MUTEX_HPP
+#endif  // SIMPLE_WEB_MUTEX_HPP
