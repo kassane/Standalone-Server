@@ -13,6 +13,23 @@ pub fn build(b: *std.Build) void {
     });
     const libasio = libasio_dep.artifact("asio");
 
+    const lib = b.addStaticLibrary(.{
+        .name = "Standalone-server",
+        .target = target,
+        .optimize = optimize,
+    });
+    lib.addCSourceFile(.{ .file = .{
+        .path = "tests/empty.cc",
+    }, .flags = &.{} });
+    lib.addIncludePath(.{
+        .path = "include",
+    });
+    lib.defineCMacro("ASIO_STANDALONE", null);
+    lib.installHeadersDirectory("include", "");
+    lib.installLibraryHeaders(libasio);
+
+    b.installArtifact(lib);
+
     if (ssl)
         buildExe(b, .{
             .lib = libasio,
