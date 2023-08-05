@@ -87,25 +87,28 @@ fn buildExe(b: *std.Build, info: BuildInfo) void {
         .target = info.lib.target,
     });
     exe.installLibraryHeaders(info.lib);
-    exe.addIncludePath("include");
-    exe.addCSourceFile(info.path, switch (info.fuzzer) {
-        true => &.{
-            "-Wall",
-            "-Wextra",
-            "-std=c++17",
-            "-Wno-thread-safety",
-            // "-fsanitize=fuzzer",
-        },
-        else => &.{
-            "-Wall",
-            "-Wextra",
-            "-std=c++17",
+    exe.addIncludePath(.{ .path = "include" });
+    exe.addCSourceFile(.{
+        .file = .{ .path = info.path },
+        .flags = switch (info.fuzzer) {
+            true => &.{
+                "-Wall",
+                "-Wextra",
+                "-std=c++17",
+                "-Wno-thread-safety",
+                // "-fsanitize=fuzzer",
+            },
+            else => &.{
+                "-Wall",
+                "-Wextra",
+                "-std=c++17",
+            },
         },
     });
     exe.defineCMacro("ASIO_STANDALONE", null);
     if (info.fuzzer) {
         exe.defineCMacro("LSAN_OPTIONS", "detect_leaks=0");
-        exe.addIncludePath("tests");
+        exe.addIncludePath(.{ .path = "tests" });
     }
     if (info.ssl) {
         exe.linkSystemLibrary("crypto");
@@ -134,13 +137,13 @@ fn buildExe(b: *std.Build, info: BuildInfo) void {
 }
 
 const BuildInfo = struct {
-    lib: *std.Build.CompileStep,
+    lib: *std.Build.Step.Compile,
     path: []const u8,
     ssl: bool,
     fuzzer: bool,
 
     fn filename(self: BuildInfo) []const u8 {
-        var split = std.mem.split(u8, std.fs.path.basename(self.path), ".");
+        var split = std.mem.splitSequence(u8, std.fs.path.basename(self.path), ".");
         return split.first();
     }
 };

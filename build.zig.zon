@@ -3,8 +3,8 @@
     .version = "0.1.0",
     .dependencies = .{
         .asio = .{
-            .url = "https://github.com/kassane/asio/archive/refs/tags/1.28.0.tar.gz",
-            .hash = "122088a3877c50fb7c4659506f733dcac17a945ddd20f1a640855314522f19d8186e",
+	    .url = "https://github.com/kassane/asio/archive/2e97b6a4d37be85529d191380eeda67240fd61fe.tar.gz",
+            .hash = "12208b60f54e758b964ad3038973b7c4198d40ed6d6ea2955b6e44cee971e6edeb5e",
         },
     },
 }

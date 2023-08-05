@@ -1,4 +1,4 @@
-name: Zig build
+name: Zig Build
 
 on: [push, pull_request]
 
@@ -7,8 +7,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.runs-on }}
+        targets:
+          - x86_64-linux-gnu
+          - x86-linux-gnu
+          - aarch64-linux-gnu
+          - aarch64-linux-musl
+          - riscv64-linux-musl
+          - mipsel-linux-musl
+          - mips-linux-musl
+          - powerpc64-linux-musl
+          - x86_64-macos
+          - aarch64-macos
+          - x86_64-windows
+          - x86-windows
+          - aarch64-windows
+
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
@@ -16,35 +30,7 @@ jobs:
           fetch-depth: 0
       - uses: goto-bus-stop/setup-zig@v2
         with:
-          version: 0.11.0-dev.3258+7621e5693
-      
-      - name: Build Summary
-        run: zig build -DTests -fsummary -freference-trace
-      
-      - name: Build Summary (x86-windows-gnu)
-        if: startsWith(matrix.runs-on, 'windows')
-        run: zig build -DTests -fsummary -freference-trace -Dtarget=x86-windows
+          version: master
 
-      - name: Build Summary (arm64-windows-gnu)
-        if: startsWith(matrix.runs-on, 'windows')
-        run: zig build -DTests -fsummary -freference-trace -Dtarget=aarch64-windows
-      
-      - name: Build Summary (arm64-macos)
-        if: startsWith(matrix.runs-on, 'macos')
-        run: zig build -DTests -fsummary -freference-trace -Dtarget=aarch64-macos
-      
-      - name: Build Summary (arm64-linux-gnu)
-        if: startsWith(matrix.runs-on, 'ubuntu')
-        run: zig build -DTests -fsummary -freference-trace -Dtarget=aarch64-linux-gnu
-
-      - name: Build Summary (arm64-linux-musl)
-        if: startsWith(matrix.runs-on, 'ubuntu')
-        run: zig build -DTests -fsummary -freference-trace -Dtarget=aarch64-linux
-      
-      - name: Build Summary (riscv64-linux-musl)
-        if: startsWith(matrix.runs-on, 'ubuntu')
-        run: zig build -DTests -fsummary -freference-trace -Dtarget=riscv64-linux
-      
-      - name: Build Summary (powerpc64-linux-musl)
-        if: startsWith(matrix.runs-on, 'ubuntu')
-        run: zig build -DTests -fsummary -freference-trace -Dtarget=powerpc64-linux
+      - name: Build Summary ${{ matrix.targets }}
+        run: zig build -DTests --summary all -freference-trace -Dtarget=${{ matrix.targets }}
