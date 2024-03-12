@@ -1,6 +1,10 @@
 # Standalone-Server
 
-A very simple, fast, multithreaded, platform independent HTTP and HTTPS server and client library implemented using C++17 and Asio standalone. Created to be an easy way to make REST resources available from C++ applications. 
+A very simple, fast, multithreaded, platform independent HTTP and HTTPS server and client library implemented using C++17 and Asio standalone. Created to be an easy way to make REST resources available from C++ applications.
+
+## Requires
+
+- [Zig](https://ziglang.org/download) toolchain v0.12.0 or master
 
 ## Features
 

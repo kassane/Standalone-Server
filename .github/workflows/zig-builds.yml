@@ -33,4 +33,4 @@ jobs:
           version: master
 
       - name: Build Summary ${{ matrix.targets }}
-        run: zig build -DTests --summary all -freference-trace -Dtarget=${{ matrix.targets }}
+        run: zig build -Dtests --summary all -freference-trace -Dtarget=${{ matrix.targets }}

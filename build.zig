@@ -4,8 +4,8 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const ssl = b.option(bool, "Ssl", "Enable openssl support [default: false]") orelse false;
-    const tests = b.option(bool, "Tests", "Building testing [default: false]") orelse false;
+    const ssl = b.option(bool, "ssl", "Enable openssl support [default: false]") orelse false;
+    const tests = b.option(bool, "tests", "Building testing [default: false]") orelse false;
 
     const libasio_dep = b.dependency("asio", .{
         .target = target,
@@ -100,8 +100,8 @@ pub fn build(b: *std.Build) void {
 fn buildExe(b: *std.Build, info: BuildInfo) void {
     const exe = b.addExecutable(.{
         .name = info.filename(),
-        .optimize = info.lib.optimize,
-        .target = info.lib.target,
+        .optimize = info.lib.root_module.optimize.?,
+        .target = info.lib.root_module.resolved_target.?,
     });
     exe.installLibraryHeaders(info.lib);
     exe.addIncludePath(.{ .path = "include" });
@@ -131,12 +131,16 @@ fn buildExe(b: *std.Build, info: BuildInfo) void {
         exe.linkSystemLibrary("crypto");
         exe.linkSystemLibrary("ssl");
     }
-    if (info.lib.target.isWindows()) {
+    if (exe.rootModuleTarget().os.tag == .windows) {
         exe.linkSystemLibrary("ws2_32");
         exe.linkSystemLibrary("mswsock");
     }
     exe.linkLibrary(info.lib);
-    exe.linkLibCpp();
+    if (exe.rootModuleTarget().abi != .msvc) {
+        exe.linkLibCpp();
+    } else {
+        exe.linkLibC();
+    }
 
     b.installArtifact(exe);
 

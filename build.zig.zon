@@ -1,10 +1,11 @@
 .{
     .name = "standalone-server",
     .version = "0.1.0",
+    .paths = .{""},
     .dependencies = .{
         .asio = .{
-	    .url = "https://github.com/kassane/asio/archive/2e97b6a4d37be85529d191380eeda67240fd61fe.tar.gz",
-            .hash = "12208b60f54e758b964ad3038973b7c4198d40ed6d6ea2955b6e44cee971e6edeb5e",
+            .url = "git+https://github.com/kassane/asio#cfec4608112abd44462afbad427d0f2ca3e30199",
+            .hash = "1220926d7e934fcb9e4e55f25e24d17613fbe9b145798581e0ae7ea3679b37f4e44d",
         },
     },
 }
