@@ -4,8 +4,8 @@
     .paths = .{""},
     .dependencies = .{
         .asio = .{
-            .url = "git+https://github.com/kassane/asio#cfec4608112abd44462afbad427d0f2ca3e30199",
-            .hash = "1220926d7e934fcb9e4e55f25e24d17613fbe9b145798581e0ae7ea3679b37f4e44d",
+            .url = "git+https://github.com/kassane/asio#b86cb93cd4d70ddd79968bb5e9721e2b59045de9",
+            .hash = "122046dd9012668ea9be052a30476e2ca1314b796e352a26960a3af6b64c38fd1ef0",
         },
     },
 }

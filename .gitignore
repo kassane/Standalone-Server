@@ -29,5 +29,4 @@ status_code_test
 
 doxygen_output
 
-zig-cache
-zig-out
+*zig-*/

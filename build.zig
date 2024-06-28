@@ -18,15 +18,13 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.addCSourceFile(.{ .file = .{
-        .path = "tests/empty.cc",
-    }, .flags = &.{} });
-    lib.addIncludePath(.{
-        .path = "include",
-    });
+    lib.addCSourceFile(.{ .file = b.path("tests/empty.cc") });
+    lib.addIncludePath(b.path("include"));
+    for (libasio.root_module.include_dirs.items) |dir| {
+        lib.root_module.include_dirs.append(b.allocator, dir) catch {};
+    }
     lib.defineCMacro("ASIO_STANDALONE", null);
-    lib.installHeadersDirectory("include", "");
-    lib.installLibraryHeaders(libasio);
+    lib.installHeadersDirectory(b.path("include"), "", .{});
 
     b.installArtifact(lib);
 
@@ -104,16 +102,15 @@ fn buildExe(b: *std.Build, info: BuildInfo) void {
         .target = info.lib.root_module.resolved_target.?,
     });
     exe.installLibraryHeaders(info.lib);
-    exe.addIncludePath(.{ .path = "include" });
+    exe.addIncludePath(b.path("include"));
     exe.addCSourceFile(.{
-        .file = .{ .path = info.path },
+        .file = b.path(info.path),
         .flags = switch (info.fuzzer) {
             true => &.{
                 "-Wall",
                 "-Wextra",
                 "-std=c++17",
                 "-Wno-thread-safety",
-                // "-fsanitize=fuzzer",
             },
             else => &.{
                 "-Wall",
@@ -125,7 +122,7 @@ fn buildExe(b: *std.Build, info: BuildInfo) void {
     exe.defineCMacro("ASIO_STANDALONE", null);
     if (info.fuzzer) {
         exe.defineCMacro("LSAN_OPTIONS", "detect_leaks=0");
-        exe.addIncludePath(.{ .path = "tests" });
+        exe.addIncludePath(b.path("tests"));
     }
     if (info.ssl) {
         exe.linkSystemLibrary("crypto");
