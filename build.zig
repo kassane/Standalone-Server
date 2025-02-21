@@ -23,7 +23,7 @@ pub fn build(b: *std.Build) void {
     for (libasio.root_module.include_dirs.items) |dir| {
         lib.root_module.include_dirs.append(b.allocator, dir) catch {};
     }
-    lib.defineCMacro("ASIO_STANDALONE", null);
+    lib.root_module.addCMacro("ASIO_STANDALONE", "1");
     lib.installHeadersDirectory(b.path("include"), "", .{});
 
     b.installArtifact(lib);
@@ -119,9 +119,9 @@ fn buildExe(b: *std.Build, info: BuildInfo) void {
             },
         },
     });
-    exe.defineCMacro("ASIO_STANDALONE", null);
+    exe.root_module.addCMacro("ASIO_STANDALONE", "1");
     if (info.fuzzer) {
-        exe.defineCMacro("LSAN_OPTIONS", "detect_leaks=0");
+        exe.root_module.addCMacro("LSAN_OPTIONS", "detect_leaks=0");
         exe.addIncludePath(b.path("tests"));
     }
     if (info.ssl) {
