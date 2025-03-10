@@ -1,11 +1,13 @@
 .{
-    .name = "standalone-server",
+    .name = .standalone_server,
+    .fingerprint = 0x7c120d39ae294e0b,
+    .minimum_zig_version = "0.14.0",
     .version = "0.1.0",
     .paths = .{""},
     .dependencies = .{
         .asio = .{
-            .url = "git+https://github.com/kassane/asio#10a3e0c11415f074dd9968b9c0e3a1a05b753f3d",
-            .hash = "12206031ceba4e53cd55ab2ab86d3da470f49f711e75273141ec72faee017a27cb62",
+            .url = "https://github.com/kassane/asio/archive/refs/tags/1.34.0.tar.gz",
+            .hash = "asio-1.34.0-GW1zxsWA4gAdAHT8kfeVl5IkQqOg5GBnQHdp7MmcHEIU",
         },
     },
 }

@@ -4,7 +4,7 @@ A very simple, fast, multithreaded, platform independent HTTP and HTTPS server a
 
 ## Requires
 
-- [Zig](https://ziglang.org/download) toolchain v0.13.0 or master
+- [Zig](https://ziglang.org/download) toolchain v0.14.0 or master
 
 ## Features
 
